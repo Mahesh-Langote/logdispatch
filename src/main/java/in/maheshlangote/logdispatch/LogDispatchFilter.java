@@ -48,27 +48,44 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         
+        Throwable unhandledException = null;
         try {
             filterChain.doFilter(request, response);
         } catch (Exception ex) {
-            // Spring filters might throw exceptions up the chain, catch and let it bubble up, but log it first if needed.
-            // Note: Standard Spring MVC usually handles exceptions via ControllerAdvice, which sets the response status but consumes the exception.
+            unhandledException = ex;
             throw ex;
         } finally {
-            // After the request has been processed, inspect the status.
+            // After the request has been processed, inspect the final status.
             int status = response.getStatus();
+            if (unhandledException != null) {
+                // Unhandled exceptions bubbling out of the filter chain result in a 500
+                status = 500;
+            }
             
             if (status >= 400) {
-                // Check if the Aspect already handled an exception for this request
-                Object handled = request.getAttribute("logdispatch.handled");
-                if (handled == null || !(Boolean) handled) {
-                    pushErrorAsync(request, status);
+                Throwable aspectEx = (Throwable) request.getAttribute("logdispatch.exception");
+                Throwable actualEx = unhandledException != null ? unhandledException : aspectEx;
+
+                if (actualEx != null) {
+                    // We have exception details (either from the Aspect or from an unhandled filter exception)
+                    String feature = (String) request.getAttribute("logdispatch.feature");
+                    String api = (String) request.getAttribute("logdispatch.api");
+                    String function = (String) request.getAttribute("logdispatch.function");
+                    
+                    if (feature == null) feature = actualEx.getClass().getSimpleName();
+                    if (api == null) api = request.getRequestURI();
+                    if (function == null) function = "UNKNOWN";
+
+                    pushErrorAsync(request, status, actualEx, feature, api, function);
+                } else {
+                    // Pure filter-level error (e.g. 403 Forbidden via security filter, no exception thrown)
+                    pushFilterErrorAsync(request, status);
                 }
             }
         }
     }
 
-    private void pushErrorAsync(HttpServletRequest request, int statusCode) {
+    private void pushFilterErrorAsync(HttpServletRequest request, int statusCode) {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
@@ -100,6 +117,47 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 log.warn("[LogDispatch] Failed to push filter error: {} : {}", e.getStatusCode(), e.getResponseBodyAsString());
             } catch (Exception e) {
                 log.warn("[LogDispatch] Failed to push filter error: {}", e.getMessage());
+            }
+        });
+    }
+
+    private void pushErrorAsync(HttpServletRequest request, int statusCode, Throwable ex, String feature, String api, String function) {
+        String path = request.getRequestURI();
+        String method = request.getMethod();
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
+
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("timestamp", Instant.now().toString());
+                payload.put("errorType", ex.getClass().getSimpleName());
+                payload.put("statusCode", statusCode);
+                payload.put("errorMessage", ex.getMessage());
+                payload.put("errorPath", path);
+                payload.put("affectedFeature", feature);
+                payload.put("affectedAPI", api);
+                payload.put("apiType", method);
+                payload.put("affectedFunction", function);
+                
+                StringBuilder stackTrace = new StringBuilder();
+                for (StackTraceElement element : ex.getStackTrace()) {
+                    stackTrace.append(element.toString()).append("\n");
+                }
+                payload.put("stackTrace", stackTrace.toString());
+                payload.put("severity", severity);
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.set("X-API-KEY", apiKey);
+
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                
+                restTemplate.postForEntity(serverUrl, entity, String.class);
+            } catch (HttpClientErrorException | HttpServerErrorException e) {
+                log.warn("[LogDispatch] Failed to push error: {} : {}", e.getStatusCode(), e.getResponseBodyAsString());
+            } catch (Exception e) {
+                log.warn("[LogDispatch] Failed to push error: {}", e.getMessage());
             }
         });
     }

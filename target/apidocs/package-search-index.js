@@ -1,1 +1,0 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"in.maheshlangote.logdispatch"},{"l":"in.maheshlangote.logdispatch.annotation"},{"l":"in.maheshlangote.logdispatch.config"}];updateSearchResults();

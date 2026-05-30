@@ -39,7 +39,7 @@ public class LogDispatchAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "logdispatch.enabled", havingValue = "true", matchIfMissing = true)
     public LogDispatchAspect logDispatchAspect() {
-        return new LogDispatchAspect(serverUrl, apiKey);
+        return new LogDispatchAspect();
     }
 
     /**
