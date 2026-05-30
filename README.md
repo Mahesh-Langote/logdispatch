@@ -24,7 +24,7 @@ Add to your `pom.xml`:
 <dependency>
     <groupId>in.maheshlangote</groupId>
     <artifactId>logdispatch-spring-boot-starter</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.3</version>
 </dependency>
 ```
 
