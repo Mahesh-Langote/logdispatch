@@ -65,11 +65,14 @@ public class LogDispatchAspect {
     @AfterThrowing(pointcut = "within(@org.springframework.web.bind.annotation.RestController *)", throwing = "ex")
     public void handleControllerException(JoinPoint joinPoint, Throwable ex) {
         String path = "UNKNOWN";
+        String httpMethod = "UNKNOWN";
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
                 path = request.getRequestURI();
+                httpMethod = request.getMethod();
+                request.setAttribute("logdispatch.handled", true);
             }
         } catch (Exception ignored) {}
 
@@ -94,19 +97,25 @@ public class LogDispatchAspect {
             }
         } catch (Exception ignored) {}
 
-        pushErrorAsync(ex, path, feature, api, function);
+        pushErrorAsync(ex, path, feature, api, function, httpMethod);
     }
 
     /**
      * Asynchronously pushes the exception details to the LogDispatch server.
      * Fails silently if the server is unreachable to prevent impacting the client application.
      */
-    private void pushErrorAsync(Throwable ex, String errorPath, String feature, String api, String function) {
+    private void pushErrorAsync(Throwable ex, String errorPath, String feature, String api, String function, String httpMethod) {
         CompletableFuture.runAsync(() -> {
             try {
                 int statusCode = 500; // Default for unhandled exceptions
                 if (ex instanceof org.springframework.web.server.ResponseStatusException) {
                     statusCode = ((org.springframework.web.server.ResponseStatusException) ex).getStatusCode().value();
+                } else {
+                    org.springframework.web.bind.annotation.ResponseStatus responseStatus = 
+                        org.springframework.core.annotation.AnnotationUtils.findAnnotation(ex.getClass(), org.springframework.web.bind.annotation.ResponseStatus.class);
+                    if (responseStatus != null) {
+                        statusCode = responseStatus.value().value();
+                    }
                 }
 
                 String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
@@ -119,6 +128,7 @@ public class LogDispatchAspect {
                 payload.put("errorPath", errorPath);
                 payload.put("affectedFeature", feature);
                 payload.put("affectedAPI", api);
+                payload.put("apiType", httpMethod);
                 payload.put("affectedFunction", function);
                 
                 StringBuilder stackTrace = new StringBuilder();

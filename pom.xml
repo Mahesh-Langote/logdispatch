@@ -4,7 +4,7 @@
 
     <groupId>in.maheshlangote</groupId>
     <artifactId>logdispatch-spring-boot-starter</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <name>LogDispatch Spring Boot Starter</name>
     <description>A standalone, zero-configuration APM client for intercepting and dispatching logs to a centralized server.</description>
     <url>https://maheshlangote.in</url>
@@ -26,9 +26,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/maheshlangote/logdispatch.git</connection>
-        <developerConnection>scm:git:ssh://github.com:maheshlangote/logdispatch.git</developerConnection>
-        <url>http://github.com/maheshlangote/logdispatch/tree/main</url>
+        <connection>scm:git:git://github.com/Mahesh-Langote/logdispatch.git</connection>
+        <developerConnection>scm:git:ssh://github.com:Mahesh-Langote/logdispatch.git</developerConnection>
+        <url>https://github.com/Mahesh-Langote/logdispatch/tree/main</url>
     </scm>
 
     <properties>

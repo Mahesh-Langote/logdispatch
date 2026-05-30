@@ -49,9 +49,9 @@ logdispatch:
 
 ## How It Works
 
-When a `@RestController` method throws an unhandled exception, the SDK:
+When a `@RestController` method throws an unhandled exception, or when a filter rejects a request (e.g., `403 Forbidden`, `404 Not Found`), the SDK:
 
-1. Captures the **request URI**, **exception class**, **message**, and **full stack trace**.
+1. Captures the **request URI**, **HTTP method**, **exception class**, **message**, and **full stack trace**.
 2. Reads optional metadata from the `@LogDispatch` annotation (feature, api, function names).
 3. Asynchronously `POST`s a JSON payload to `server-url` with `X-API-KEY` in the header.
 4. Logs a `WARN` to your application log if the push fails — and continues silently.
@@ -80,6 +80,7 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
   "errorPath":        "/api/v1/user/create",
   "affectedFeature":  "UserController",
   "affectedAPI":      "/api/v1/user/create",
+  "apiType":          "POST",
   "affectedFunction": "createUser",
   "stackTrace":       "java.lang.IllegalArgumentException: Invalid entries\n\tat com.example...",
   "severity":         "CRITICAL"
@@ -95,6 +96,7 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
 | `errorPath`         | `String` | The request URI where the exception was thrown                      |
 | `affectedFeature`   | `String` | Controller class name, or value from `@LogDispatch(feature = "...")` |
 | `affectedAPI`       | `String` | Request path, or value from `@LogDispatch(api = "...")`             |
+| `apiType`           | `String` | The HTTP request method (e.g., `GET`, `POST`, `PUT`, `DELETE`)      |
 | `affectedFunction`  | `String` | Method name, or value from `@LogDispatch(function = "...")`         |
 | `stackTrace`        | `String` | Full stack trace as a newline-separated string                      |
 | `severity`          | `String` | `CRITICAL` for 5xx, `WARNING` for 4xx                              |

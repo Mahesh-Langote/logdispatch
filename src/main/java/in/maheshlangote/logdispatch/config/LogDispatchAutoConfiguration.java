@@ -35,4 +35,21 @@ public class LogDispatchAutoConfiguration {
     public LogDispatchAspect logDispatchAspect() {
         return new LogDispatchAspect(serverUrl, apiKey);
     }
+
+    /**
+     * Creates and exposes the {@link in.maheshlangote.logdispatch.LogDispatchFilter} bean.
+     * This filter catches filter-level exceptions (e.g. 403 Forbidden).
+     *
+     * @return a fully configured {@link in.maheshlangote.logdispatch.LogDispatchFilter}.
+     */
+    @Bean
+    @ConditionalOnProperty(name = "logdispatch.enabled", havingValue = "true", matchIfMissing = true)
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<in.maheshlangote.logdispatch.LogDispatchFilter> logDispatchFilterRegistration() {
+        org.springframework.boot.web.servlet.FilterRegistrationBean<in.maheshlangote.logdispatch.LogDispatchFilter> registrationBean = new org.springframework.boot.web.servlet.FilterRegistrationBean<>();
+        registrationBean.setFilter(new in.maheshlangote.logdispatch.LogDispatchFilter(serverUrl, apiKey));
+        registrationBean.addUrlPatterns("/*");
+        // Use Highest Precedence to ensure it wraps everything including security filters
+        registrationBean.setOrder(org.springframework.core.Ordered.HIGHEST_PRECEDENCE);
+        return registrationBean;
+    }
 }
