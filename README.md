@@ -24,7 +24,7 @@ Add to your `pom.xml`:
 <dependency>
     <groupId>in.maheshlangote</groupId>
     <artifactId>logdispatch-spring-boot-starter</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
 </dependency>
 ```
 
@@ -38,12 +38,14 @@ Add to your `application.yml`:
 logdispatch:
   server-url: "https://your-apm-server.com/api/v1/ingest/logs"
   api-key: "your-secret-api-key"
+  masked-headers: "authorization,cookie,x-api-key"
 ```
 
-| Property                  | Required | Description                                          |
-|---------------------------|----------|------------------------------------------------------|
-| `logdispatch.server-url`  | ✅ Yes   | Full URL of the APM ingest endpoint                  |
-| `logdispatch.api-key`     | ✅ Yes   | API key used to authenticate with the APM server     |
+| Property                     | Required | Description                                                              |
+|------------------------------|----------|--------------------------------------------------------------------------|
+| `logdispatch.server-url`     | ✅ Yes   | Full URL of the APM ingest endpoint                                      |
+| `logdispatch.api-key`        | ✅ Yes   | API key used to authenticate with the APM server                         |
+| `logdispatch.masked-headers` | ❌ No    | Comma-separated list of headers to mask. Defaults to empty (none masked) |
 
 ---
 
@@ -83,7 +85,16 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
   "apiType":          "POST",
   "affectedFunction": "createUser",
   "stackTrace":       "java.lang.IllegalArgumentException: Invalid entries\n\tat com.example...",
-  "severity":         "CRITICAL"
+  "severity":         "CRITICAL",
+  "inputInformation": {
+    "queryString": null,
+    "parameters": {},
+    "headers": {
+      "host": "localhost:8080",
+      "content-type": "application/json"
+    },
+    "body": "{\"entries\": []}"
+  }
 }
 ```
 
@@ -100,6 +111,9 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
 | `affectedFunction`  | `String` | Method name, or value from `@LogDispatch(function = "...")`         |
 | `stackTrace`        | `String` | Full stack trace as a newline-separated string                      |
 | `severity`          | `String` | `CRITICAL` for 5xx, `WARNING` for 4xx                              |
+| `inputInformation`  | `Object` | Request details (query params, headers, and body up to 32 KB)       |
+
+> **Note:** For safety, `inputInformation.body` is skipped for `multipart/form-data` uploads or if the payload exceeds 32 KB to prevent `OutOfMemory` issues.
 
 ### Severity Mapping
 

@@ -13,12 +13,17 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import java.io.IOException;
+import java.util.Enumeration;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * Filter that captures all unhandled HTTP errors (e.g. 401, 403, 404, 500)
@@ -31,26 +36,53 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final String serverUrl;
     private final String apiKey;
     private final RestTemplate restTemplate;
+    private final Set<String> maskedHeaders;
 
     /**
      * Constructs the LogDispatchFilter.
      *
      * @param serverUrl the endpoint URL of the centralized APM server
      * @param apiKey the authentication key required by the APM server
+     * @param maskedHeaders list of headers to mask
      */
-    public LogDispatchFilter(String serverUrl, String apiKey) {
+    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders) {
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
         this.restTemplate = new RestTemplate();
+        this.maskedHeaders = maskedHeaders == null ? Set.of() : maskedHeaders.stream()
+                .filter(h -> h != null && !h.trim().isEmpty())
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+    }
+
+    private static final int MAX_PAYLOAD_SIZE = 32 * 1024; // 32 KB
+
+    private boolean shouldWrapRequest(HttpServletRequest request) {
+        String contentType = request.getContentType();
+        if (contentType != null && contentType.toLowerCase().startsWith("multipart/")) {
+            return false; // Skip file uploads
+        }
+        int contentLength = request.getContentLength();
+        if (contentLength > MAX_PAYLOAD_SIZE) {
+            return false; // Skip large payloads
+        }
+        return true;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         
+        // Wrap the request to cache the input stream so we can log the body later if needed
+        // but avoid wrapping if it's a file upload or a huge payload to prevent OutOfMemory issues.
+        HttpServletRequest requestToUse = request;
+        if (shouldWrapRequest(request)) {
+            requestToUse = new ContentCachingRequestWrapper(request);
+        }
+        
         Throwable unhandledException = null;
         try {
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(requestToUse, response);
         } catch (Exception ex) {
             unhandledException = ex;
             throw ex;
@@ -63,29 +95,31 @@ public class LogDispatchFilter extends OncePerRequestFilter {
             }
             
             if (status >= 400) {
-                Throwable aspectEx = (Throwable) request.getAttribute("logdispatch.exception");
+                Map<String, Object> inputInfo = extractInputInformation(requestToUse);
+
+                Throwable aspectEx = (Throwable) requestToUse.getAttribute("logdispatch.exception");
                 Throwable actualEx = unhandledException != null ? unhandledException : aspectEx;
 
                 if (actualEx != null) {
                     // We have exception details (either from the Aspect or from an unhandled filter exception)
-                    String feature = (String) request.getAttribute("logdispatch.feature");
-                    String api = (String) request.getAttribute("logdispatch.api");
-                    String function = (String) request.getAttribute("logdispatch.function");
+                    String feature = (String) requestToUse.getAttribute("logdispatch.feature");
+                    String api = (String) requestToUse.getAttribute("logdispatch.api");
+                    String function = (String) requestToUse.getAttribute("logdispatch.function");
                     
                     if (feature == null) feature = actualEx.getClass().getSimpleName();
-                    if (api == null) api = request.getRequestURI();
+                    if (api == null) api = requestToUse.getRequestURI();
                     if (function == null) function = "UNKNOWN";
 
-                    pushErrorAsync(request, status, actualEx, feature, api, function);
+                    pushErrorAsync(requestToUse, status, actualEx, feature, api, function, inputInfo);
                 } else {
                     // Pure filter-level error (e.g. 403 Forbidden via security filter, no exception thrown)
-                    pushFilterErrorAsync(request, status);
+                    pushFilterErrorAsync(requestToUse, status, inputInfo);
                 }
             }
         }
     }
 
-    private void pushFilterErrorAsync(HttpServletRequest request, int statusCode) {
+    private void pushFilterErrorAsync(HttpServletRequest request, int statusCode, Map<String, Object> inputInfo) {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
@@ -105,6 +139,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 payload.put("affectedFunction", "doFilter");
                 payload.put("stackTrace", "No stack trace available for filter-level status codes.");
                 payload.put("severity", severity);
+                payload.put("inputInformation", inputInfo);
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
@@ -121,7 +156,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         });
     }
 
-    private void pushErrorAsync(HttpServletRequest request, int statusCode, Throwable ex, String feature, String api, String function) {
+    private void pushErrorAsync(HttpServletRequest request, int statusCode, Throwable ex, String feature, String api, String function, Map<String, Object> inputInfo) {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
@@ -146,6 +181,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 }
                 payload.put("stackTrace", stackTrace.toString());
                 payload.put("severity", severity);
+                payload.put("inputInformation", inputInfo);
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
@@ -160,5 +196,44 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 log.warn("[LogDispatch] Failed to push error: {}", e.getMessage());
             }
         });
+    }
+
+    private Map<String, Object> extractInputInformation(HttpServletRequest request) {
+        Map<String, Object> inputInfo = new HashMap<>();
+        
+        inputInfo.put("queryString", request.getQueryString());
+        
+        Map<String, String[]> parameterMap = request.getParameterMap();
+        if (parameterMap != null && !parameterMap.isEmpty()) {
+            inputInfo.put("parameters", new HashMap<>(parameterMap));
+        }
+        
+        Map<String, String> headers = new HashMap<>();
+        Enumeration<String> headerNames = request.getHeaderNames();
+        if (headerNames != null) {
+            while (headerNames.hasMoreElements()) {
+                String headerName = headerNames.nextElement();
+                String value = maskedHeaders.contains(headerName.toLowerCase()) ? "********" : request.getHeader(headerName);
+                headers.put(headerName, value);
+            }
+        }
+        inputInfo.put("headers", headers);
+        
+        if (request instanceof ContentCachingRequestWrapper) {
+            ContentCachingRequestWrapper wrapper = (ContentCachingRequestWrapper) request;
+            byte[] buf = wrapper.getContentAsByteArray();
+            if (buf.length > 0) {
+                try {
+                    String encoding = wrapper.getCharacterEncoding();
+                    if (encoding == null) encoding = "UTF-8";
+                    String body = new String(buf, 0, Math.min(buf.length, 10000), encoding);
+                    inputInfo.put("body", body);
+                } catch (Exception e) {
+                    inputInfo.put("body", "[Error reading request body]");
+                }
+            }
+        }
+        
+        return inputInfo;
     }
 }
