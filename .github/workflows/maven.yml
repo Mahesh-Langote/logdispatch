@@ -8,18 +8,34 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Test on both Java 17 and 21 to ensure compatibility for users
+        java-version: [ '17', '21' ]
 
     steps:
     - uses: actions/checkout@v4
-    - name: Set up JDK 21
+
+    - name: Set up JDK ${{ matrix.java-version }}
       uses: actions/setup-java@v4
       with:
-        java-version: '21'
+        java-version: ${{ matrix.java-version }}
         distribution: 'temurin'
         cache: maven
+
     - name: Make mvnw executable
       run: chmod +x mvnw
-    - name: Build with Maven
-      run: ./mvnw clean install -B -V
+
+    - name: Build and Test with Maven
+      # Skip GPG signing for standard CI builds
+      run: ./mvnw clean install -B -V -Dgpg.skip=true
+
+    - name: Upload Build Artifacts
+      # Only upload artifacts for the Java 21 build to save space
+      if: matrix.java-version == '21'
+      uses: actions/upload-artifact@v4
+      with:
+        name: logdispatch-artifacts
+        path: target/*.jar
+        retention-days: 5
