@@ -1,0 +1,3 @@
+logdispatch:
+  health:
+    rate-limit-per-minute: 60
