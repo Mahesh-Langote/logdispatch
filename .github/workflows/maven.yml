@@ -34,7 +34,7 @@ jobs:
     - name: Upload Build Artifacts
       # Only upload artifacts for the Java 21 build to save space
       if: matrix.java-version == '21'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: logdispatch-artifacts
         path: target/*.jar
