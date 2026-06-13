@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -23,10 +24,12 @@ public class LogDispatchHealthController {
 
     private final Instant startupTime;
     
-    // Rate Limiting (60 requests per minute per IP)
+    // Rate Limiting (configurable requests per minute per IP)
     private final ConcurrentHashMap<String, AtomicInteger> requestCounts = new ConcurrentHashMap<>();
     private long currentWindowStart = System.currentTimeMillis();
-    private static final int MAX_REQUESTS_PER_MINUTE = 60;
+    @Value("${logdispatch.health.rate-limit-per-minute:60}")
+    private int maxRequestsPerMinute;
+    
     private static final long WINDOW_SIZE_MS = 60000;
 
     /**
@@ -37,12 +40,12 @@ public class LogDispatchHealthController {
     }
 
     /**
-     * Returns the health status and uptime of the application.
-     * Enforces a rate limit of 60 requests per minute per IP.
-     *
-     * @param request the HTTP request, used to determine the client IP
-     * @return a ResponseEntity containing the status, startup time, and uptime
-     */
+ * Returns the health status and uptime of the application.
+ * Enforces a configurable rate limit per IP.
+ *
+ * @param request the HTTP request, used to determine the client IP
+ * @return a ResponseEntity containing the status, startup time, and uptime
+ */
     @GetMapping
     public ResponseEntity<Map<String, Object>> healthCheck(HttpServletRequest request) {
         String clientIp = getClientIp(request);
@@ -50,7 +53,7 @@ public class LogDispatchHealthController {
         if (!isAllowed(clientIp)) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("status", "RATE_LIMITED");
-            errorResponse.put("message", "Too many requests. Limit is 60 requests per minute.");
+            errorResponse.put("message", "Too many requests. Limit is " + maxRequestsPerMinute + " requests per minute.");
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
         }
 
@@ -77,7 +80,7 @@ public class LogDispatchHealthController {
         }
         
         int count = requestCounts.computeIfAbsent(ip, k -> new AtomicInteger(0)).incrementAndGet();
-        return count <= MAX_REQUESTS_PER_MINUTE;
+        return count <= maxRequestsPerMinute;
     }
 
     private String getClientIp(HttpServletRequest request) {

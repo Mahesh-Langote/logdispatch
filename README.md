@@ -215,3 +215,9 @@ Without the annotation, it defaults to the controller class name, method name, a
 ## License
 
 MIT License
+
+## Configuration
+
+| Property | Default | Description |
+|---|---|---|
+| `logdispatch.health.rate-limit-per-minute` | 60 | Maximum requests per minute for the health check endpoint |

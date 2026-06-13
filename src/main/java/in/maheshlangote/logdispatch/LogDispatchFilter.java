@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.springframework.util.AntPathMatcher;
+import java.util.Arrays;
 
 /**
  * Filter that captures all unhandled HTTP errors (e.g. 401, 403, 404, 500)
@@ -37,6 +39,8 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final String apiKey;
     private final RestTemplate restTemplate;
     private final Set<String> maskedHeaders;
+    private final List<String> excludedPaths;
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     /**
      * Constructs the LogDispatchFilter.
@@ -45,7 +49,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
      * @param apiKey the authentication key required by the APM server
      * @param maskedHeaders list of headers to mask
      */
-    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders) {
+    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, String excludePaths) {
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
         this.restTemplate = new RestTemplate();
@@ -53,6 +57,9 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 .filter(h -> h != null && !h.trim().isEmpty())
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
+        this.excludedPaths = excludePaths == null || excludePaths.isEmpty()
+                ? List.of()
+                : Arrays.asList(excludePaths.split(","));
     }
 
     private static final int MAX_PAYLOAD_SIZE = 32 * 1024; // 32 KB
@@ -76,6 +83,15 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         // Wrap the request to cache the input stream so we can log the body later if needed
         // but avoid wrapping if it's a file upload or a huge payload to prevent OutOfMemory issues.
         HttpServletRequest requestToUse = request;
+                
+        // Skip APM logic for excluded paths
+        String requestUri = request.getRequestURI();
+        for (String pattern : excludedPaths) {
+            if (pathMatcher.match(pattern.trim(), requestUri)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+        }
         if (shouldWrapRequest(request)) {
             requestToUse = new ContentCachingRequestWrapper(request);
         }

@@ -1,0 +1,4 @@
+logdispatch:
+  health:
+    rate-limit-per-minute: 60
+  exclude-paths: /health,/actuator/**

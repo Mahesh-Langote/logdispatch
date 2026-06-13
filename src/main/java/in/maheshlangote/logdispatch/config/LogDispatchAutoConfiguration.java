@@ -34,6 +34,9 @@ public class LogDispatchAutoConfiguration {
     @Value("${logdispatch.masked-headers:}")
     private java.util.List<String> maskedHeaders;
 
+    @Value("${logdispatch.exclude-paths:/health,/actuator/**}")
+    private String excludePaths;
+
     /**
      * Creates and exposes the {@link LogDispatchAspect} bean.
      *
@@ -55,7 +58,7 @@ public class LogDispatchAutoConfiguration {
     @ConditionalOnProperty(name = "logdispatch.enabled", havingValue = "true", matchIfMissing = true)
     public org.springframework.boot.web.servlet.FilterRegistrationBean<in.maheshlangote.logdispatch.LogDispatchFilter> logDispatchFilterRegistration() {
         org.springframework.boot.web.servlet.FilterRegistrationBean<in.maheshlangote.logdispatch.LogDispatchFilter> registrationBean = new org.springframework.boot.web.servlet.FilterRegistrationBean<>();
-        registrationBean.setFilter(new in.maheshlangote.logdispatch.LogDispatchFilter(serverUrl, apiKey, maskedHeaders));
+        registrationBean.setFilter(new in.maheshlangote.logdispatch.LogDispatchFilter(serverUrl, apiKey, maskedHeaders, excludePaths));
         registrationBean.addUrlPatterns("/*");
         // Use Highest Precedence to ensure it wraps everything including security filters
         registrationBean.setOrder(org.springframework.core.Ordered.HIGHEST_PRECEDENCE);
