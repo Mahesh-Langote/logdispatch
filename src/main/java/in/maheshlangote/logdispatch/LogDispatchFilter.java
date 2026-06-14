@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -37,6 +38,8 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final String apiKey;
     private final RestTemplate restTemplate;
     private final Set<String> maskedHeaders;
+    private final List<String> excludePaths;
+    private final AntPathMatcher antPathMatcher;
 
     /**
      * Constructs the LogDispatchFilter.
@@ -44,8 +47,9 @@ public class LogDispatchFilter extends OncePerRequestFilter {
      * @param serverUrl the endpoint URL of the centralized APM server
      * @param apiKey the authentication key required by the APM server
      * @param maskedHeaders list of headers to mask
+     * @param excludePaths list of URI paths to exclude from logging (supports wildcard patterns)
      */
-    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders) {
+    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths) {
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
         this.restTemplate = new RestTemplate();
@@ -53,9 +57,26 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 .filter(h -> h != null && !h.trim().isEmpty())
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
+        this.excludePaths = excludePaths == null ? List.of() : excludePaths.stream()
+                .filter(p -> p != null && !p.trim().isEmpty())
+                .collect(Collectors.toList());
+        this.antPathMatcher = new AntPathMatcher();
     }
 
     private static final int MAX_PAYLOAD_SIZE = 32 * 1024; // 32 KB
+
+    private boolean isPathExcluded(String requestPath) {
+        if (excludePaths == null || excludePaths.isEmpty()) {
+            return false;
+        }
+        
+        for (String excludePattern : excludePaths) {
+            if (antPathMatcher.match(excludePattern, requestPath)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     private boolean shouldWrapRequest(HttpServletRequest request) {
         String contentType = request.getContentType();
@@ -72,6 +93,13 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        
+        // Check if the request path is excluded
+        String requestPath = request.getRequestURI();
+        if (isPathExcluded(requestPath)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         
         // Wrap the request to cache the input stream so we can log the body later if needed
         // but avoid wrapping if it's a file upload or a huge payload to prevent OutOfMemory issues.
