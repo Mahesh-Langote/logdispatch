@@ -54,11 +54,11 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
         this.restTemplate = new RestTemplate();
-        this.maskedHeaders = maskedHeaders == null ? Set.of() : maskedHeaders.stream()
+        this.maskedHeaders = maskedHeaders == null ? java.util.Collections.emptySet() : maskedHeaders.stream()
                 .filter(h -> h != null && !h.trim().isEmpty())
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
-        this.excludePaths = excludePaths == null ? List.of() : excludePaths.stream()
+        this.excludePaths = excludePaths == null ? java.util.Collections.emptyList() : excludePaths.stream()
                 .filter(p -> p != null && !p.trim().isEmpty())
                 .collect(Collectors.toList());
     }
