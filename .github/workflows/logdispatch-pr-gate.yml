@@ -16,8 +16,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  build-and-test:
-    name: Build & Test (Java ${{ matrix.java-version }})
+  build:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
