@@ -1,0 +1,37 @@
+name: LogDispatch Post-Merge Build
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Verify Main (Java ${{ matrix.java-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: [ '17', '21' ]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
+      - name: Build and Test with Maven
+        run: ./mvnw clean install -B -V -Dgpg.skip=true
+
+      - name: Upload Build Artifacts
+        if: matrix.java-version == '21'
+        uses: actions/upload-artifact@v7
+        with:
+          name: logdispatch-artifacts
+          path: target/*.jar
+          retention-days: 5

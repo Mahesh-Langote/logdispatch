@@ -1,0 +1,66 @@
+name: LogDispatch PR Gate
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [ opened, synchronize, reopened ]
+
+# Cancel in-progress runs for the same PR to save resources
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  build-and-test:
+    name: Build & Test (Java ${{ matrix.java-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java-version: [ '17', '21' ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
+      - name: Run mvn clean install
+        run: ./mvnw clean install -B -V -Dgpg.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: target/surefire-reports/*.xml
+          check_name: Test Results (Java ${{ matrix.java-version }})
+
+      - name: Upload Test Reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports-java-${{ matrix.java-version }}
+          path: |
+            target/surefire-reports/
+          retention-days: 7
+
+      - name: Upload Build Artifacts
+        if: matrix.java-version == '21'
+        uses: actions/upload-artifact@v7
+        with:
+          name: logdispatch-artifacts
+          path: target/*.jar
+          retention-days: 5
