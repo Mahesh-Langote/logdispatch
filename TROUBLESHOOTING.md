@@ -8,15 +8,13 @@ Frequently asked questions and common issues when using LogDispatch.
 
 **Possible causes and fixes:**
 
-1. **SDK is disabled:** Check that `logdispatch.enabled` is not set to `false`. The default is `true`.
-2. **Missing or incorrect configuration:** Verify `logdispatch.server-url` and `logdispatch.api-key` are set and point to your actual APM server.
-3. **No exceptions thrown:** LogDispatch only captures unhandled exceptions from `@RestController` classes and 4xx/5xx filter-level errors. Controlled responses (e.g., `ResponseEntity.status(400).body(...)` without throwing) are not intercepted.
-4. **Network issues:** Check your application logs for `WARN [LogDispatch]` entries. The SDK logs connection failures silently — check for messages like `Connection refused` or `401 UNAUTHORIZED`.
+1. **Missing or incorrect configuration:** Verify `logdispatch.server-url` and `logdispatch.api-key` are set and point to your actual APM server.
+2. **No exceptions thrown:** LogDispatch only captures unhandled exceptions from `@RestController` classes and 4xx/5xx filter-level errors. Controlled responses (e.g., `ResponseEntity.status(400).body(...)` without throwing) are not intercepted.
+3. **Network issues:** Check your application logs for `WARN [LogDispatch]` entries. The SDK logs connection failures silently — check for messages like `Connection refused` or `401 UNAUTHORIZED`.
 
 ```yml
 # Verify your configuration:
 logdispatch:
-  enabled: true
   server-url: "https://your-apm-server.com/api/v1/ingest/logs"
   api-key: "your-secret-api-key"
 ```
@@ -31,7 +29,7 @@ The rate limit uses a 60-second sliding window per client IP. If your monitoring
 
 - Reduce the polling interval to once every second (60 req/min max).
 - Have multiple clients spread across different IPs.
-- Disable the health endpoint by setting `logdispatch.enabled: false` and implement your own.
+- Upgrade to a future release that supports a configurable rate limit (tracked in issue #14).
 
 ---
 
@@ -69,30 +67,6 @@ logdispatch:
 ```
 
 > **Note:** The `/logdispatch/health` endpoint is automatically excluded and does not need to be added to `exclude-paths`.
-
----
-
-## Why is the SDK sending logs in my local or test environment?
-
-The SDK is active by default. To disable it in non-production environments, use Spring profiles:
-
-```yml
-# application-dev.yml
-logdispatch:
-  enabled: false
-```
-
-Or conditionally set it with a Spring expression:
-
-```yml
-# application.yml
-logdispatch:
-  enabled: ${LOG_DISPATCH_ENABLED:true}
-  server-url: "${LOG_DISPATCH_SERVER_URL:}"
-  api-key: "${LOG_DISPATCH_API_KEY:}"
-```
-
-When `logdispatch.enabled` is set to `false`, the AOP aspect, filter, and health endpoint are all disabled — no network calls will be made.
 
 ---
 
