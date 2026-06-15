@@ -39,7 +39,8 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final RestTemplate restTemplate;
     private final Set<String> maskedHeaders;
     private final List<String> excludePaths;
-    private final AntPathMatcher antPathMatcher;
+    
+    private static final AntPathMatcher ANT_PATH_MATCHER = new AntPathMatcher();
 
     /**
      * Constructs the LogDispatchFilter.
@@ -60,18 +61,17 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         this.excludePaths = excludePaths == null ? List.of() : excludePaths.stream()
                 .filter(p -> p != null && !p.trim().isEmpty())
                 .collect(Collectors.toList());
-        this.antPathMatcher = new AntPathMatcher();
     }
 
     private static final int MAX_PAYLOAD_SIZE = 32 * 1024; // 32 KB
 
     private boolean isPathExcluded(String requestPath) {
-        if (excludePaths == null || excludePaths.isEmpty()) {
+        if (excludePaths.isEmpty()) {
             return false;
         }
         
         for (String excludePattern : excludePaths) {
-            if (antPathMatcher.match(excludePattern, requestPath)) {
+            if (ANT_PATH_MATCHER.match(excludePattern, requestPath)) {
                 return true;
             }
         }

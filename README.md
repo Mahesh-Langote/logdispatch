@@ -39,6 +39,7 @@ logdispatch:
   server-url: "https://your-apm-server.com/api/v1/ingest/logs"
   api-key: "your-secret-api-key"
   masked-headers: "authorization,cookie,x-api-key"
+  exclude-paths: "/health,/actuator/**,/metrics/**"
 ```
 
 | Property                     | Required | Description                                                              |
@@ -46,6 +47,7 @@ logdispatch:
 | `logdispatch.server-url`     | ✅ Yes   | Full URL of the APM ingest endpoint                                      |
 | `logdispatch.api-key`        | ✅ Yes   | API key used to authenticate with the APM server                         |
 | `logdispatch.masked-headers` | ❌ No    | Comma-separated list of headers to mask. Defaults to empty (none masked) |
+| `logdispatch.exclude-paths`  | ❌ No    | Comma-separated list of URI paths to exclude from logging. Supports wildcard patterns (e.g., `/health,/actuator/**`). Defaults to empty (all paths logged) |
 
 ---
 
