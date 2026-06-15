@@ -6,6 +6,11 @@ on:
   # Automatically triggers when a new GitHub Release is published
   release:
     types: [published]
+  push:
+    branches:
+      - "release"
+      - "release/**"
+      - "release-java8"
 
 jobs:
   publish:
@@ -30,6 +35,9 @@ jobs:
 
       - name: Make mvnw executable
         run: chmod +x mvnw
+
+      - name: Automatically remove -SNAPSHOT before publishing
+        run: ./mvnw versions:set -DremoveSnapshot -DgenerateBackupPoms=false
 
       - name: Publish package
         run: ./mvnw clean deploy -B

@@ -6,6 +6,16 @@ First off, thank you for considering contributing to LogDispatch! It's people li
 
 If you've noticed a bug or have a feature request, make sure to check our [Issues](../../issues) to see if someone else in the community has already created a ticket. If not, go ahead and [make one](../../issues/new/choose)!
 
+## Branching Strategy & Java Versions
+
+We maintain two primary development branches to support different Java ecosystems:
+
+* **`main`**: The primary branch for Java 17+. All new features and developments happen here.
+* **`main-java8`**: The branch for Java 8 compatibility. Critical bug fixes or core features from `main` are cherry-picked into this branch by maintainers. The Maven version ends with the `-java8` suffix.
+
+**When contributing:**
+Always target your Pull Requests against the **`main`** branch. If your PR includes a critical bug fix, maintainers will handle cherry-picking it into the `main-java8` branch for Java 8 users.
+
 ## Fork & create a branch
 
 If this is something you think you can fix, then [fork LogDispatch](https://help.github.com/articles/fork-a-repo) and create a branch with a descriptive name.
