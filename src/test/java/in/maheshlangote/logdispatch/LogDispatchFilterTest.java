@@ -23,7 +23,8 @@ class LogDispatchFilterTest {
         filter = new LogDispatchFilter(
                 "http://localhost:8080",
                 "test-api-key",
-                List.of("authorization")
+                List.of("authorization"),
+                List.of()
         );
     }
 
