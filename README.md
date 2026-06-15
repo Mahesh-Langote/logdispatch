@@ -1,6 +1,9 @@
 # LogDispatch Spring Boot Starter
 
 [![Maven Central](https://img.shields.io/maven-central/v/in.maheshlangote/logdispatch-spring-boot-starter)](https://central.sonatype.com/artifact/in.maheshlangote/logdispatch-spring-boot-starter)
+[![CI](https://github.com/Mahesh-Langote/logdispatch/actions/workflows/logdispatch-post-merge.yml/badge.svg?branch=main)](https://github.com/Mahesh-Langote/logdispatch/actions)
+[![Java](https://img.shields.io/badge/Java-17%2B-blue?logo=openjdk)](https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A lightweight, zero-configuration **Application Performance Monitoring (APM) client** for Spring Boot. Uses Spring AOP to automatically intercept unhandled exceptions from `@RestController` classes and dispatches them asynchronously to your centralized log server.
 
