@@ -217,6 +217,12 @@ Without the annotation, it defaults to the controller class name, method name, a
 
 ---
 
+## Troubleshooting
+
+For common problems and solutions, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+
+---
+
 ## License
 
 MIT License
