@@ -21,9 +21,12 @@ import java.util.Enumeration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +42,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final RestTemplate restTemplate;
     private final Set<String> maskedHeaders;
     private final List<String> excludePaths;
+    private final Executor dispatchExecutor;
     
     private static final AntPathMatcher ANT_PATH_MATCHER = new AntPathMatcher();
 
@@ -51,15 +55,22 @@ public class LogDispatchFilter extends OncePerRequestFilter {
      * @param excludePaths list of URI paths to exclude from logging (supports wildcard patterns)
      */
     public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths) {
+        this(serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null);
+    }
+
+    LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths,
+                      RestTemplate restTemplate, Executor dispatchExecutor) {
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
-        this.restTemplate = new RestTemplate();
+        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
+        this.dispatchExecutor = dispatchExecutor;
         this.maskedHeaders = maskedHeaders == null ? Set.of() : maskedHeaders.stream()
                 .filter(h -> h != null && !h.trim().isEmpty())
-                .map(String::toLowerCase)
+                .map(h -> h.trim().toLowerCase(Locale.ROOT))
                 .collect(Collectors.toSet());
         this.excludePaths = excludePaths == null ? List.of() : excludePaths.stream()
                 .filter(p -> p != null && !p.trim().isEmpty())
+                .map(String::trim)
                 .collect(Collectors.toList());
     }
 
@@ -79,6 +90,9 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     }
 
     private boolean shouldWrapRequest(HttpServletRequest request) {
+        if ("GET".equalsIgnoreCase(request.getMethod()) && request.getContentLength() <= 0) {
+            return false;
+        }
         String contentType = request.getContentType();
         if (contentType != null && contentType.toLowerCase().startsWith("multipart/")) {
             return false; // Skip file uploads
@@ -151,7 +165,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
-        CompletableFuture.runAsync(() -> {
+        dispatchAsync(() -> {
             try {
                 String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
 
@@ -188,7 +202,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
-        CompletableFuture.runAsync(() -> {
+        dispatchAsync(() -> {
             try {
                 String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
 
@@ -226,6 +240,14 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         });
     }
 
+    private void dispatchAsync(Runnable task) {
+        if (dispatchExecutor == null) {
+            CompletableFuture.runAsync(task);
+        } else {
+            CompletableFuture.runAsync(task, dispatchExecutor);
+        }
+    }
+
     private Map<String, Object> extractInputInformation(HttpServletRequest request) {
         Map<String, Object> inputInfo = new HashMap<>();
         
@@ -241,7 +263,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         if (headerNames != null) {
             while (headerNames.hasMoreElements()) {
                 String headerName = headerNames.nextElement();
-                String value = maskedHeaders.contains(headerName.toLowerCase()) ? "********" : request.getHeader(headerName);
+                String value = maskedHeaders.contains(headerName.toLowerCase(Locale.ROOT)) ? "********" : request.getHeader(headerName);
                 headers.put(headerName, value);
             }
         }
