@@ -129,7 +129,7 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
 | `apiType`          | String | HTTP method                                              |
 | `affectedFunction` | String | Method name or annotation override                       |
 | `stackTrace`       | String | Full stack trace                                         |
-| `severity`         | String | WARNING or CRITICAL                                      |
+| `severity`         | String | WARNING, CRITICAL, or SECURITY                           |
 | `inputInformation` | Object | Request metadata including headers, parameters, and body |
 
 > **Note:** `inputInformation.body` is skipped for `multipart/form-data` uploads or payloads larger than 32 KB.
@@ -142,7 +142,9 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
 | ----------- | -------- |
 | 4xx (Exception) | WARNING  |
 | 5xx (Exception) | CRITICAL |
-| Filter/Routing Error | SECURITY |
+| Filter Error (401, 403) | SECURITY |
+| Filter Error (404) | WARNING |
+| Filter Error (500+) | CRITICAL |
 
 ---
 
