@@ -265,7 +265,7 @@ class LogDispatchFilterTest {
     }
 
     private LogDispatchFilter filterWith(List<String> maskedHeaders, List<String> excludePaths) {
-        return new LogDispatchFilter(SERVER_URL, API_KEY, maskedHeaders, excludePaths, restTemplate, Runnable::run);
+        return new LogDispatchFilter(SERVER_URL, API_KEY, maskedHeaders, excludePaths, restTemplate, Runnable::run, 3000);
     }
 
     private static MockHttpServletRequest request(String method, String path) {
