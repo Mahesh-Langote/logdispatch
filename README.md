@@ -142,9 +142,7 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
 | ----------- | -------- |
 | 4xx (Exception) | WARNING  |
 | 5xx (Exception) | CRITICAL |
-| Filter Error (401, 403) | SECURITY |
-| Filter Error (404) | WARNING |
-| Filter Error (500+) | CRITICAL |
+| Filter/Routing Error | SECURITY |
 
 ---
 
