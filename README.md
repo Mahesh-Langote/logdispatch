@@ -129,7 +129,7 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
 | `apiType`          | String | HTTP method                                              |
 | `affectedFunction` | String | Method name or annotation override                       |
 | `stackTrace`       | String | Full stack trace                                         |
-| `severity`         | String | WARNING or CRITICAL                                      |
+| `severity`         | String | WARNING, CRITICAL, or SECURITY                           |
 | `inputInformation` | Object | Request metadata including headers, parameters, and body |
 
 > **Note:** `inputInformation.body` is skipped for `multipart/form-data` uploads or payloads larger than 32 KB.
@@ -138,10 +138,11 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
 
 ## Severity Mapping
 
-| HTTP Status | Severity |
+| HTTP Status / Condition | Severity |
 | ----------- | -------- |
-| 4xx         | WARNING  |
-| 5xx         | CRITICAL |
+| 4xx (Exception) | WARNING  |
+| 5xx (Exception) | CRITICAL |
+| Filter/Routing Error | SECURITY |
 
 ---
 
@@ -272,6 +273,14 @@ Without the annotation, the SDK defaults to:
 * Controller class name
 * Method name
 * Raw request URI
+
+---
+
+# Testing & Contributing
+
+If you want to contribute to this project, please follow our established automation testing best practices. 
+
+Please see the [TESTING.md](TESTING.md) file for detailed guidelines on how to run, structure, and write tests for this SDK.
 
 ---
 
