@@ -223,6 +223,12 @@ For common problems and solutions, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md
 
 ---
 
+## Example App
+
+A runnable Spring Boot demo is available in [example-app](./example-app). It includes dummy REST endpoints that intentionally throw exceptions so you can see LogDispatch capture and dispatch APM log payloads.
+
+---
+
 ## License
 
 MIT License

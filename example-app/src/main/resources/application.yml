@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: logdispatch-example-app
+
+logdispatch:
+  enabled: true
+  server-url: "http://localhost:8081/api/v1/ingest/logs"
+  api-key: "demo-api-key"
+  masked-headers: "authorization,cookie,x-api-key"
+  exclude-paths: "/logdispatch/health"
