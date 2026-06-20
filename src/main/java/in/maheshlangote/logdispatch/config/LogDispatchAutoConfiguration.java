@@ -36,6 +36,8 @@ public class LogDispatchAutoConfiguration {
 
     @Value("${logdispatch.exclude-paths:}")
     private java.util.List<String> excludePaths;
+    @Value("${logdispatch.timeout-ms:3000}")
+    private int timeoutMs;
 
     /**
      * Creates and exposes the {@link LogDispatchAspect} bean.
@@ -58,8 +60,7 @@ public class LogDispatchAutoConfiguration {
     @ConditionalOnProperty(name = "logdispatch.enabled", havingValue = "true", matchIfMissing = true)
     public org.springframework.boot.web.servlet.FilterRegistrationBean<in.maheshlangote.logdispatch.LogDispatchFilter> logDispatchFilterRegistration() {
         org.springframework.boot.web.servlet.FilterRegistrationBean<in.maheshlangote.logdispatch.LogDispatchFilter> registrationBean = new org.springframework.boot.web.servlet.FilterRegistrationBean<>();
-        registrationBean.setFilter(new in.maheshlangote.logdispatch.LogDispatchFilter(serverUrl, apiKey, maskedHeaders, excludePaths));
-        registrationBean.addUrlPatterns("/*");
+        registrationBean.setFilter(new in.maheshlangote.logdispatch.LogDispatchFilter(serverUrl, apiKey, maskedHeaders, excludePaths, timeoutMs));        registrationBean.addUrlPatterns("/*");
         // Use Highest Precedence to ensure it wraps everything including security filters
         registrationBean.setOrder(org.springframework.core.Ordered.HIGHEST_PRECEDENCE);
         return registrationBean;

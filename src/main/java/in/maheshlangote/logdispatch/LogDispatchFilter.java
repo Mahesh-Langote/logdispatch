@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
@@ -40,6 +41,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final String serverUrl;
     private final String apiKey;
     private final RestTemplate restTemplate;
+    private final int timeoutMs;
     private final Set<String> maskedHeaders;
     private final List<String> excludePaths;
     private final Executor dispatchExecutor;
@@ -53,17 +55,32 @@ public class LogDispatchFilter extends OncePerRequestFilter {
      * @param apiKey the authentication key required by the APM server
      * @param maskedHeaders list of headers to mask
      * @param excludePaths list of URI paths to exclude from logging (supports wildcard patterns)
+     * @param timeoutMs the HTTP connection and read timeout in milliseconds
      */
-    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths) {
-        this(serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null);
+    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths, int timeoutMs) { 
+        this(serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null, timeoutMs);
     }
 
     LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths,
-                      RestTemplate restTemplate, Executor dispatchExecutor) {
+                      RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs) {
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
-        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
+        this.timeoutMs = timeoutMs;
         this.dispatchExecutor = dispatchExecutor;
+        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
+        
+        // Configure the timeout on the RestTemplate's underlying request factory
+        if (this.restTemplate.getRequestFactory() instanceof SimpleClientHttpRequestFactory) {
+            SimpleClientHttpRequestFactory factory = (SimpleClientHttpRequestFactory) this.restTemplate.getRequestFactory();
+            factory.setConnectTimeout(timeoutMs);
+            factory.setReadTimeout(timeoutMs);
+        } else {
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(timeoutMs);
+            factory.setReadTimeout(timeoutMs);
+            this.restTemplate.setRequestFactory(factory);
+        }
+
         this.maskedHeaders = maskedHeaders == null ? Set.of() : maskedHeaders.stream()
                 .filter(h -> h != null && !h.trim().isEmpty())
                 .map(h -> h.trim().toLowerCase(Locale.ROOT))
