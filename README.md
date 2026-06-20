@@ -276,6 +276,14 @@ Without the annotation, the SDK defaults to:
 
 ---
 
+# Testing & Contributing
+
+If you want to contribute to this project, please follow our established automation testing best practices. 
+
+Please see the [TESTING.md](TESTING.md) file for detailed guidelines on how to run, structure, and write tests for this SDK.
+
+---
+
 # Troubleshooting
 
 For common problems and solutions, see:
