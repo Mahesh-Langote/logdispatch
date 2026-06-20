@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-06-20
+### Added
+- Implemented a new `SECURITY` severity classification for unhandled filter-level exceptions.
+- Added strict type safety to the dispatch payload structure via `LogDispatchPayload`.
+- Added support for excluding specific URI paths from being intercepted by the filter.
+- Added support for tracking and masking additional HTTP headers in `LogDispatchFilter`.
+- Added `LogDispatchAspectTest` for full AOP test coverage.
+
+### Changed
+- Refactored `LogDispatchFilterTest` into focused, SRP-compliant test files with a shared base test class.
+- Simplified GitHub Actions CI/CD workflows and implemented a PR gating mechanism.
+- Bumped `spring.boot.version` dependency from `3.3.2` to `3.5.15`.
+
+### Documentation
+- Added explicit testing guidelines and contribution instructions via `TESTING.md`.
+- Added a comprehensive troubleshooting guide (`TROUBLESHOOTING.md`).
+- Added `application.properties` configuration examples.
+- Removed deprecated references to `logdispatch.enabled`.
+- Added CI, Java, and License status badges to `README.md`.
+
 ## [1.0.6] - 2026-06-12
 ### Changed
 - Upgraded internal build infrastructure: Maven wrapper bumped to 3.9.8 and `maven-compiler-plugin` to 3.15.0.
