@@ -138,10 +138,11 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
 
 ## Severity Mapping
 
-| HTTP Status | Severity |
+| HTTP Status / Condition | Severity |
 | ----------- | -------- |
-| 4xx         | WARNING  |
-| 5xx         | CRITICAL |
+| 4xx (Exception) | WARNING  |
+| 5xx (Exception) | CRITICAL |
+| Filter/Routing Error | SECURITY |
 
 ---
 

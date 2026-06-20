@@ -167,27 +167,29 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         
         dispatchAsync(() -> {
             try {
-                String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
+                String severity = "SECURITY";
+                String feature = "FilterSecurity/Routing";
 
-                Map<String, Object> payload = new HashMap<>();
-                payload.put("timestamp", Instant.now().toString());
-                payload.put("errorType", "FilterError");
-                payload.put("statusCode", statusCode);
-                payload.put("errorMessage", "Request failed with status " + statusCode + " at filter level.");
-                payload.put("errorPath", path);
-                payload.put("affectedFeature", "FilterSecurity/Routing");
-                payload.put("affectedAPI", path);
-                payload.put("apiType", method);
-                payload.put("affectedFunction", "doFilter");
-                payload.put("stackTrace", "No stack trace available for filter-level status codes.");
-                payload.put("severity", severity);
-                payload.put("inputInformation", inputInfo);
+                LogDispatchPayload payload = new LogDispatchPayload(
+                        Instant.now().toString(),
+                        "FilterError",
+                        statusCode,
+                        "Request failed with status " + statusCode + " at filter level.",
+                        path,
+                        feature,
+                        path,
+                        method,
+                        "doFilter",
+                        "No stack trace available for filter-level status codes.",
+                        severity,
+                        inputInfo
+                );
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
                 headers.set("X-API-KEY", apiKey);
 
-                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                HttpEntity<LogDispatchPayload> entity = new HttpEntity<>(payload, headers);
                 
                 restTemplate.postForEntity(serverUrl, entity, String.class);
             } catch (HttpClientErrorException | HttpServerErrorException e) {
@@ -206,30 +208,31 @@ public class LogDispatchFilter extends OncePerRequestFilter {
             try {
                 String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
 
-                Map<String, Object> payload = new HashMap<>();
-                payload.put("timestamp", Instant.now().toString());
-                payload.put("errorType", ex.getClass().getSimpleName());
-                payload.put("statusCode", statusCode);
-                payload.put("errorMessage", ex.getMessage());
-                payload.put("errorPath", path);
-                payload.put("affectedFeature", feature);
-                payload.put("affectedAPI", api);
-                payload.put("apiType", method);
-                payload.put("affectedFunction", function);
-                
                 StringBuilder stackTrace = new StringBuilder();
                 for (StackTraceElement element : ex.getStackTrace()) {
                     stackTrace.append(element.toString()).append("\n");
                 }
-                payload.put("stackTrace", stackTrace.toString());
-                payload.put("severity", severity);
-                payload.put("inputInformation", inputInfo);
+                
+                LogDispatchPayload payload = new LogDispatchPayload(
+                        Instant.now().toString(),
+                        ex.getClass().getSimpleName(),
+                        statusCode,
+                        ex.getMessage(),
+                        path,
+                        feature,
+                        api,
+                        method,
+                        function,
+                        stackTrace.toString(),
+                        severity,
+                        inputInfo
+                );
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
                 headers.set("X-API-KEY", apiKey);
 
-                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                HttpEntity<LogDispatchPayload> entity = new HttpEntity<>(payload, headers);
                 
                 restTemplate.postForEntity(serverUrl, entity, String.class);
             } catch (HttpClientErrorException | HttpServerErrorException e) {

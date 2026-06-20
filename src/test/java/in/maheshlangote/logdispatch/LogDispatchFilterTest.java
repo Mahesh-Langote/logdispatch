@@ -50,7 +50,7 @@ class LogDispatchFilterTest {
 
         Map<String, Object> payload = dispatchedPayload();
         assertThat(payload).containsEntry("statusCode", 404);
-        assertThat(payload).containsEntry("severity", "WARNING");
+        assertThat(payload).containsEntry("severity", "SECURITY");
         assertThat(payload).containsEntry("errorPath", "/api/users");
     }
 
@@ -63,7 +63,7 @@ class LogDispatchFilterTest {
 
         Map<String, Object> payload = dispatchedPayload();
         assertThat(payload).containsEntry("statusCode", 500);
-        assertThat(payload).containsEntry("severity", "CRITICAL");
+        assertThat(payload).containsEntry("severity", "SECURITY");
     }
 
     @Test
@@ -301,7 +301,10 @@ class LogDispatchFilterTest {
 
         HttpEntity<?> entity = (HttpEntity<?>) requestCaptor.getValue();
         assertThat(entity.getHeaders().getFirst("X-API-KEY")).isEqualTo(API_KEY);
-        return (Map<String, Object>) entity.getBody();
+        
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.findAndRegisterModules();
+        return mapper.convertValue(entity.getBody(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
     }
 
     @SuppressWarnings("unchecked")
