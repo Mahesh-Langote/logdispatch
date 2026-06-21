@@ -65,19 +65,19 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                       RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs) {
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
-        this.timeoutMs = timeoutMs;
+        this.timeoutMs = (timeoutMs > 0) ? timeoutMs : 3000;
         this.dispatchExecutor = dispatchExecutor;
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
         
         // Configure the timeout on the RestTemplate's underlying request factory
         if (this.restTemplate.getRequestFactory() instanceof SimpleClientHttpRequestFactory) {
             SimpleClientHttpRequestFactory factory = (SimpleClientHttpRequestFactory) this.restTemplate.getRequestFactory();
-            factory.setConnectTimeout(timeoutMs);
-            factory.setReadTimeout(timeoutMs);
+            factory.setConnectTimeout(this.timeoutMs);
+            factory.setReadTimeout(this.timeoutMs);
         } else {
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(timeoutMs);
-            factory.setReadTimeout(timeoutMs);
+            factory.setConnectTimeout(this.timeoutMs);
+            factory.setReadTimeout(this.timeoutMs);
             this.restTemplate.setRequestFactory(factory);
         }
 
