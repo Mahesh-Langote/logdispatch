@@ -62,6 +62,7 @@ logdispatch.exclude-paths=/health,/actuator/**,/metrics/**
 | `logdispatch.api-key`        | ✅ Yes    | API key used to authenticate with the APM server                                        |
 | `logdispatch.masked-headers` | ❌ No     | Comma-separated list of headers to mask. Defaults to none                               |
 | `logdispatch.exclude-paths`  | ❌ No     | Comma-separated list of URI paths to exclude. Supports wildcards such as `/actuator/**` |
+| `logdispatch.timeout-ms`     | ❌ No | Connection and read timeout in milliseconds. Defaults to `3000`.                            |
 
 ---
 
