@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequestMapping("/logdispatch/health")
 public class LogDispatchHealthController {
 
+    private final boolean enabled;
     private final Instant startupTime;
     
     // Rate Limiting (60 requests per minute per IP)
@@ -33,6 +34,16 @@ public class LogDispatchHealthController {
      * Initializes the health controller and records the startup time.
      */
     public LogDispatchHealthController() {
+        this(true);
+    }
+
+    /**
+     * Initializes the health controller and records the startup time.
+     *
+     * @param enabled whether LogDispatch health reporting should be active
+     */
+    public LogDispatchHealthController(boolean enabled) {
+        this.enabled = enabled;
         this.startupTime = Instant.now();
     }
 
@@ -45,6 +56,13 @@ public class LogDispatchHealthController {
      */
     @GetMapping
     public ResponseEntity<Map<String, Object>> healthCheck(HttpServletRequest request) {
+        if (!enabled) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "DISABLED");
+            response.put("message", "LogDispatch is disabled.");
+            return ResponseEntity.ok(response);
+        }
+
         String clientIp = getClientIp(request);
         
         if (!isAllowed(clientIp)) {

@@ -15,6 +15,7 @@ import java.lang.reflect.Method;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("LogDispatch Aspect Tests")
@@ -105,6 +106,22 @@ class LogDispatchAspectTest {
 
         // Should not throw NPE
         aspect.handleControllerException(joinPoint, ex);
+    }
+
+    @Test
+    @DisplayName("Should no-op when LogDispatch is disabled")
+    void shouldNoOpWhenDisabled() {
+        LogDispatchAspect disabledAspect = new LogDispatchAspect(false);
+        JoinPoint joinPoint = mock(JoinPoint.class);
+
+        disabledAspect.handleControllerException(joinPoint, new RuntimeException("Test exception"));
+
+        assertThat(request.getAttribute("logdispatch.handled")).isNull();
+        assertThat(request.getAttribute("logdispatch.exception")).isNull();
+        assertThat(request.getAttribute("logdispatch.feature")).isNull();
+        assertThat(request.getAttribute("logdispatch.api")).isNull();
+        assertThat(request.getAttribute("logdispatch.function")).isNull();
+        verifyNoInteractions(joinPoint);
     }
 
     // Dummy controller for reflection

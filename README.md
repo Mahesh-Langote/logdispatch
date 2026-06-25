@@ -39,6 +39,7 @@ Add the dependency to your `pom.xml`:
 
 ```yaml
 logdispatch:
+  enabled: true
   server-url: "https://your-apm-server.com/api/v1/ingest/logs"
   api-key: "your-secret-api-key"
   masked-headers: "authorization,cookie,x-api-key"
@@ -48,6 +49,7 @@ logdispatch:
 ### application.properties
 
 ```properties
+logdispatch.enabled=true
 logdispatch.server-url=https://your-apm-server.com/api/v1/ingest/logs
 logdispatch.api-key=your-secret-api-key
 logdispatch.masked-headers=authorization,cookie,x-api-key
@@ -58,11 +60,28 @@ logdispatch.exclude-paths=/health,/actuator/**,/metrics/**
 
 | Property                     | Required | Description                                                                             |
 | ---------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| `logdispatch.server-url`     | ✅ Yes    | Full URL of the APM ingest endpoint                                                     |
-| `logdispatch.api-key`        | ✅ Yes    | API key used to authenticate with the APM server                                        |
+| `logdispatch.enabled`        | ❌ No     | Enables or disables the SDK. Defaults to `true`                                         |
+| `logdispatch.server-url`     | ✅ Yes, when enabled | Full URL of the APM ingest endpoint                                          |
+| `logdispatch.api-key`        | ✅ Yes, when enabled | API key used to authenticate with the APM server                             |
 | `logdispatch.masked-headers` | ❌ No     | Comma-separated list of headers to mask. Defaults to none                               |
 | `logdispatch.exclude-paths`  | ❌ No     | Comma-separated list of URI paths to exclude. Supports wildcards such as `/actuator/**` |
 | `logdispatch.timeout-ms`     | ❌ No | Connection and read timeout in milliseconds. Defaults to `3000`.                            |
+
+Disable LogDispatch in local or test profiles when you want the dependency on the classpath but do not want any APM activity:
+
+```yaml
+# application-dev.yml
+logdispatch:
+  enabled: false
+
+# application-prod.yml
+logdispatch:
+  enabled: true
+  server-url: "https://apm.mycompany.com/ingest"
+  api-key: "${APM_API_KEY}"
+```
+
+When `logdispatch.enabled=false`, the SDK passes requests through without inspecting or dispatching errors, and the health endpoint reports that LogDispatch is disabled.
 
 ---
 

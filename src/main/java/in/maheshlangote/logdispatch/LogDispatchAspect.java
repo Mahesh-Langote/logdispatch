@@ -9,9 +9,6 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.aspectj.lang.reflect.MethodSignature;
 import in.maheshlangote.logdispatch.annotation.LogDispatch;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import java.lang.reflect.Method;
 import java.lang.reflect.Method;
 
 /**
@@ -28,12 +25,22 @@ import java.lang.reflect.Method;
 @Aspect
 public class LogDispatchAspect {
 
-    private static final Logger log = LoggerFactory.getLogger(LogDispatchAspect.class);
+    private final boolean enabled;
 
     /**
      * Constructs a new LogDispatchAspect.
      */
     public LogDispatchAspect() {
+        this(true);
+    }
+
+    /**
+     * Constructs a new LogDispatchAspect.
+     *
+     * @param enabled whether LogDispatch should capture controller exceptions
+     */
+    public LogDispatchAspect(boolean enabled) {
+        this.enabled = enabled;
     }
 
     /**
@@ -45,14 +52,16 @@ public class LogDispatchAspect {
      */
     @AfterThrowing(pointcut = "within(@org.springframework.web.bind.annotation.RestController *)", throwing = "ex")
     public void handleControllerException(JoinPoint joinPoint, Throwable ex) {
+        if (!enabled) {
+            return;
+        }
+
         String path = "UNKNOWN";
-        String httpMethod = "UNKNOWN";
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
                 path = request.getRequestURI();
-                httpMethod = request.getMethod();
                 request.setAttribute("logdispatch.handled", true);
             }
         } catch (Exception ignored) {}
