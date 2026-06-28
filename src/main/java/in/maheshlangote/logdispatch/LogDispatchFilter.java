@@ -41,6 +41,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final String serverUrl;
     private final String apiKey;
     private final RestTemplate restTemplate;
+    private final boolean enabled;
     private final int timeoutMs;
     private final Set<String> maskedHeaders;
     private final List<String> excludePaths;
@@ -57,12 +58,33 @@ public class LogDispatchFilter extends OncePerRequestFilter {
      * @param excludePaths list of URI paths to exclude from logging (supports wildcard patterns)
      * @param timeoutMs the HTTP connection and read timeout in milliseconds
      */
-    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths, int timeoutMs) { 
-        this(serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null, timeoutMs);
+    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths, int timeoutMs) {
+        this(true, serverUrl, apiKey, maskedHeaders, excludePaths, timeoutMs);
+    }
+
+    /**
+     * Constructs the LogDispatchFilter.
+     *
+     * @param enabled whether LogDispatch should inspect and dispatch request errors
+     * @param serverUrl the endpoint URL of the centralized APM server
+     * @param apiKey the authentication key required by the APM server
+     * @param maskedHeaders list of headers to mask
+     * @param excludePaths list of URI paths to exclude from logging (supports wildcard patterns)
+     * @param timeoutMs the HTTP connection and read timeout in milliseconds
+     */
+    public LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
+            List<String> excludePaths, int timeoutMs) {
+        this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null, timeoutMs);
     }
 
     LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths,
                       RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs) {
+        this(true, serverUrl, apiKey, maskedHeaders, excludePaths, restTemplate, dispatchExecutor, timeoutMs);
+    }
+
+    LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
+            List<String> excludePaths, RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs) {
+        this.enabled = enabled;
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
         this.timeoutMs = (timeoutMs > 0) ? timeoutMs : 3000;
@@ -124,7 +146,11 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        
+        if (!enabled) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         // Check if the request path is excluded
         String requestPath = request.getRequestURI();
         if (isPathExcluded(requestPath)) {

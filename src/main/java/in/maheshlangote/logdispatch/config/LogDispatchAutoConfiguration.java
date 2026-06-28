@@ -1,22 +1,25 @@
 package in.maheshlangote.logdispatch.config;
 
 import in.maheshlangote.logdispatch.LogDispatchAspect;
-import org.springframework.beans.factory.annotation.Value;
+import in.maheshlangote.logdispatch.LogDispatchFilter;
+import in.maheshlangote.logdispatch.LogDispatchHealthController;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
 
 /**
  * Auto-configuration class for LogDispatch.
  * <p>
- * This configuration automatically registers the {@link LogDispatchAspect} bean
- * if the {@code logdispatch.enabled} property is set to true (or is missing).
- * It dynamically injects the server URL and API key from the application properties.
+ * This configuration automatically registers LogDispatch beans and passes the
+ * {@code logdispatch.enabled} flag to each component so disabled mode can no-op.
  * 
  * @author Mahesh Langote
  * @version 1.0.0
  */
 @AutoConfiguration
+@EnableConfigurationProperties(LogDispatchProperties.class)
 public class LogDispatchAutoConfiguration {
 
     /**
@@ -25,44 +28,38 @@ public class LogDispatchAutoConfiguration {
     public LogDispatchAutoConfiguration() {
     }
 
-    @Value("${logdispatch.server-url:http://localhost:8081/api/v1/ingest/logs}")
-    private String serverUrl;
-
-    @Value("${logdispatch.api-key:default-key}")
-    private String apiKey;
-
-    @Value("${logdispatch.masked-headers:}")
-    private java.util.List<String> maskedHeaders;
-
-    @Value("${logdispatch.exclude-paths:}")
-    private java.util.List<String> excludePaths;
-    @Value("${logdispatch.timeout-ms:3000}")
-    private int timeoutMs;
-
     /**
      * Creates and exposes the {@link LogDispatchAspect} bean.
      *
+     * @param properties LogDispatch configuration properties
      * @return a fully configured {@link LogDispatchAspect} ready to intercept exceptions.
      */
     @Bean
-    @ConditionalOnProperty(name = "logdispatch.enabled", havingValue = "true", matchIfMissing = true)
-    public LogDispatchAspect logDispatchAspect() {
-        return new LogDispatchAspect();
+    public LogDispatchAspect logDispatchAspect(LogDispatchProperties properties) {
+        return new LogDispatchAspect(properties.isEnabled());
     }
 
     /**
      * Creates and exposes the {@link in.maheshlangote.logdispatch.LogDispatchFilter} bean.
      * This filter catches filter-level exceptions (e.g. 403 Forbidden).
      *
+     * @param properties LogDispatch configuration properties
      * @return a fully configured {@link in.maheshlangote.logdispatch.LogDispatchFilter}.
      */
     @Bean
-    @ConditionalOnProperty(name = "logdispatch.enabled", havingValue = "true", matchIfMissing = true)
-    public org.springframework.boot.web.servlet.FilterRegistrationBean<in.maheshlangote.logdispatch.LogDispatchFilter> logDispatchFilterRegistration() {
-        org.springframework.boot.web.servlet.FilterRegistrationBean<in.maheshlangote.logdispatch.LogDispatchFilter> registrationBean = new org.springframework.boot.web.servlet.FilterRegistrationBean<>();
-        registrationBean.setFilter(new in.maheshlangote.logdispatch.LogDispatchFilter(serverUrl, apiKey, maskedHeaders, excludePaths, timeoutMs));        registrationBean.addUrlPatterns("/*");
+    public FilterRegistrationBean<LogDispatchFilter> logDispatchFilterRegistration(LogDispatchProperties properties) {
+        FilterRegistrationBean<LogDispatchFilter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(new LogDispatchFilter(
+                properties.isEnabled(),
+                properties.getServerUrl(),
+                properties.getApiKey(),
+                properties.getMaskedHeaders(),
+                properties.getExcludePaths(),
+                properties.getTimeoutMs()
+        ));
+        registrationBean.addUrlPatterns("/*");
         // Use Highest Precedence to ensure it wraps everything including security filters
-        registrationBean.setOrder(org.springframework.core.Ordered.HIGHEST_PRECEDENCE);
+        registrationBean.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return registrationBean;
     }
 
@@ -70,11 +67,11 @@ public class LogDispatchAutoConfiguration {
      * Creates and exposes the {@link in.maheshlangote.logdispatch.LogDispatchHealthController} bean.
      * This controller provides a lightweight health endpoint for the APM server to poll.
      *
+     * @param properties LogDispatch configuration properties
      * @return a fully configured {@link in.maheshlangote.logdispatch.LogDispatchHealthController}.
      */
     @Bean
-    @ConditionalOnProperty(name = "logdispatch.enabled", havingValue = "true", matchIfMissing = true)
-    public in.maheshlangote.logdispatch.LogDispatchHealthController logDispatchHealthController() {
-        return new in.maheshlangote.logdispatch.LogDispatchHealthController();
+    public LogDispatchHealthController logDispatchHealthController(LogDispatchProperties properties) {
+        return new LogDispatchHealthController(properties.isEnabled());
     }
 }
