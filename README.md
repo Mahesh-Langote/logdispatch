@@ -323,3 +323,9 @@ A runnable Spring Boot demo is available in [example-app](./example-app). It inc
 ## License
 
 MIT License
+
+## Configuration
+
+| Property | Default | Description |
+|---|---|---|
+| `logdispatch.health.rate-limit-per-minute` | 60 | Maximum requests per minute for the health check endpoint |
