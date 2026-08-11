@@ -4,6 +4,7 @@ import in.maheshlangote.logdispatch.LogDispatchAspect;
 import in.maheshlangote.logdispatch.LogDispatchFilter;
 import in.maheshlangote.logdispatch.LogDispatchHealthController;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +15,7 @@ import org.springframework.core.Ordered;
  * <p>
  * This configuration automatically registers LogDispatch beans and passes the
  * {@code logdispatch.enabled} flag to each component so disabled mode can no-op.
- * 
+ *
  * @author Mahesh Langote
  * @version 1.0.0
  */
@@ -66,11 +67,19 @@ public class LogDispatchAutoConfiguration {
     /**
      * Creates and exposes the {@link in.maheshlangote.logdispatch.LogDispatchHealthController} bean.
      * This controller provides a lightweight health endpoint for the APM server to poll.
+     * Registration is skipped entirely when {@code logdispatch.health.enabled=false},
+     * so the endpoint does not exist rather than responding with a "disabled" status.
      *
      * @param properties LogDispatch configuration properties
      * @return a fully configured {@link in.maheshlangote.logdispatch.LogDispatchHealthController}.
      */
     @Bean
+    @ConditionalOnProperty(
+            prefix = "logdispatch.health",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true
+    )
     public LogDispatchHealthController logDispatchHealthController(LogDispatchProperties properties) {
         return new LogDispatchHealthController(properties.isEnabled());
     }

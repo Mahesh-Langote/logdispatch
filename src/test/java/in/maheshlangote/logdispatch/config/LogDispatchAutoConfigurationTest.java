@@ -32,4 +32,20 @@ class LogDispatchAutoConfigurationTest {
                     assertThat(context.getBean(LogDispatchProperties.class).isEnabled()).isFalse();
                 });
     }
+    @Test
+    void shouldNotRegisterHealthControllerWhenHealthDisabled() {
+        contextRunner
+                .withPropertyValues("logdispatch.health.enabled=false")
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(LogDispatchHealthController.class);
+            });
+}
+
+@Test
+void shouldRegisterHealthControllerByDefaultWhenHealthPropertyMissing() {
+    contextRunner
+            .run(context -> {
+                assertThat(context).hasSingleBean(LogDispatchHealthController.class);
+            });
+}
 }

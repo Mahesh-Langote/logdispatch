@@ -11,6 +11,7 @@ import java.util.List;
 public class LogDispatchProperties {
 
     private boolean enabled = true;
+    private Health health = new Health();
     private String serverUrl = "http://localhost:8081/api/v1/ingest/logs";
     private String apiKey = "default-key";
     private List<String> maskedHeaders = List.of();
@@ -22,6 +23,36 @@ public class LogDispatchProperties {
      *
      * @return {@code true} when LogDispatch should inspect and dispatch errors
      */
+
+    public Health getHealth(){
+        return health;
+    }
+
+    public void setHealth(Health health){
+        this.health = health;
+    }
+
+    /**
+ * Configuration for the LogDispatch health endpoint.
+ * */
+    public static class Health {
+        private boolean enabled = true;
+        /**
+     * Returns whether the LogDispatch health endpoint is enabled.
+     *
+     * @return {@code true} when the /logdispatch/health endpoint should be registered
+     */
+       public boolean isEnabled() {
+        return enabled;
+       }
+
+       public void setEnabled(boolean enabled){
+        this.enabled = enabled;
+       }
+    }
+
+
+
     public boolean isEnabled() {
         return enabled;
     }

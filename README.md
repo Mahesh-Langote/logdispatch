@@ -67,6 +67,7 @@ logdispatch.exclude-paths=/health,/actuator/**,/metrics/**
 | `logdispatch.exclude-paths`  | ❌ No     | Comma-separated list of URI paths to exclude. Supports wildcards such as `/actuator/**` |
 | `logdispatch.timeout-ms`     | ❌ No | Connection and read timeout in milliseconds. Defaults to `3000`.                            |
 
+
 Disable LogDispatch in local or test profiles when you want the dependency on the classpath but do not want any APM activity:
 
 ```yaml
