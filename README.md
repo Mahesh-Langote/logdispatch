@@ -66,7 +66,7 @@ logdispatch.exclude-paths=/health,/actuator/**,/metrics/**
 | `logdispatch.masked-headers` | ❌ No     | Comma-separated list of headers to mask. Defaults to none                               |
 | `logdispatch.exclude-paths`  | ❌ No     | Comma-separated list of URI paths to exclude. Supports wildcards such as `/actuator/**` |
 | `logdispatch.timeout-ms`     | ❌ No | Connection and read timeout in milliseconds. Defaults to `3000`.                            |
-
+̉| `logdispatch.health.enabled` | ❌ No     | Enables or disables the `/logdispatch/health` endpoint. Defaults to `true` |
 
 Disable LogDispatch in local or test profiles when you want the dependency on the classpath but do not want any APM activity:
 
@@ -170,6 +170,52 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
 # Server Health Check
 
 The starter automatically exposes a lightweight endpoint that allows your APM server to verify application health and uptime.
+
+### Endpoint
+
+```http
+GET /logdispatch/health
+```
+
+### Response
+
+```json
+{
+  "status": "UP",
+  "startupTime": "2026-05-31T02:00:00.000Z",
+  "uptimeSeconds": 120
+}
+```
+
+### Disabling the Health Endpoint
+
+If your application uses a security layer (e.g. Spring Security, an API gateway) that requires all unauthenticated endpoints to be explicitly opted in, or you simply don't want the endpoint exposed, disable it entirely:
+
+```yaml
+logdispatch:
+  health:
+    enabled: false
+```
+
+```properties
+logdispatch.health.enabled=false
+```
+
+When disabled, the `/logdispatch/health` endpoint is not registered at all — requests to that path receive a `404 Not Found`, the same as any other undefined route.
+
+### Rate Limiting
+
+To prevent abuse, the endpoint is limited to:
+
+```text
+60 requests per minute per IP
+```
+
+Requests exceeding the limit receive:
+
+```http
+429 Too Many Requests
+```
 
 ### Endpoint
 
