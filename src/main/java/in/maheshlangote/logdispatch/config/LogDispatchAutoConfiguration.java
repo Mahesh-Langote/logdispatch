@@ -56,7 +56,8 @@ public class LogDispatchAutoConfiguration {
                 properties.getApiKey(),
                 properties.getMaskedHeaders(),
                 properties.getExcludePaths(),
-                properties.getTimeoutMs()
+                properties.getTimeoutMs(),
+                properties.getMaxStackFrames()
         ));
         registrationBean.addUrlPatterns("/*");
         // Use Highest Precedence to ensure it wraps everything including security filters

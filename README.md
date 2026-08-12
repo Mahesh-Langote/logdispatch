@@ -44,6 +44,7 @@ logdispatch:
   api-key: "your-secret-api-key"
   masked-headers: "authorization,cookie,x-api-key"
   exclude-paths: "/health,/actuator/**,/metrics/**"
+  max-stack-frames: 100
 ```
 
 ### application.properties
@@ -54,6 +55,7 @@ logdispatch.server-url=https://your-apm-server.com/api/v1/ingest/logs
 logdispatch.api-key=your-secret-api-key
 logdispatch.masked-headers=authorization,cookie,x-api-key
 logdispatch.exclude-paths=/health,/actuator/**,/metrics/**
+logdispatch.max-stack-frames=100
 ```
 
 ### Configuration Properties
@@ -66,6 +68,7 @@ logdispatch.exclude-paths=/health,/actuator/**,/metrics/**
 | `logdispatch.masked-headers` | ❌ No     | Comma-separated list of headers to mask. Defaults to none                               |
 | `logdispatch.exclude-paths`  | ❌ No     | Comma-separated list of URI paths to exclude. Supports wildcards such as `/actuator/**` |
 | `logdispatch.timeout-ms`     | ❌ No | Connection and read timeout in milliseconds. Defaults to `3000`.                            |
+| `logdispatch.max-stack-frames` | ❌ No | Maximum stack frames sent per error. Defaults to `100`.                                  |
 ̉| `logdispatch.health.enabled` | ❌ No     | Enables or disables the `/logdispatch/health` endpoint. Defaults to `true` |
 
 Disable LogDispatch in local or test profiles when you want the dependency on the classpath but do not want any APM activity:
@@ -90,7 +93,7 @@ When `logdispatch.enabled=false`, the SDK passes requests through without inspec
 
 When a `@RestController` method throws an unhandled exception, or when a filter rejects a request (e.g., `403 Forbidden`, `404 Not Found`), the SDK:
 
-1. Captures the request URI, HTTP method, exception class, message, and full stack trace.
+1. Captures the request URI, HTTP method, exception class, message, and bounded stack trace.
 2. Reads optional metadata from the `@LogDispatch` annotation.
 3. Asynchronously sends a JSON payload to the configured `server-url`.
 4. Includes the `X-API-KEY` header for authentication.

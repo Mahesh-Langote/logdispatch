@@ -17,6 +17,7 @@ public class LogDispatchProperties {
     private List<String> maskedHeaders = List.of();
     private List<String> excludePaths = List.of();
     private int timeoutMs = 3000;
+    private int maxStackFrames = 100;
 
     /**
      * Returns whether LogDispatch is enabled.
@@ -154,5 +155,23 @@ public class LogDispatchProperties {
      */
     public void setTimeoutMs(int timeoutMs) {
         this.timeoutMs = timeoutMs;
+    }
+
+    /**
+     * Returns the maximum number of stack frames included in an error payload.
+     *
+     * @return maximum stack frames
+     */
+    public int getMaxStackFrames() {
+        return maxStackFrames;
+    }
+
+    /**
+     * Sets the maximum number of stack frames included in an error payload.
+     *
+     * @param maxStackFrames maximum stack frames
+     */
+    public void setMaxStackFrames(int maxStackFrames) {
+        this.maxStackFrames = maxStackFrames;
     }
 }
