@@ -18,6 +18,7 @@ public class LogDispatchProperties {
     private List<String> maskedHeaders = List.of();
     private List<String> excludePaths = List.of();
     private int timeoutMs = 3000;
+    private int maxStackFrames = 100;
 
     public Health getHealth(){
         return health;
@@ -148,4 +149,23 @@ public class LogDispatchProperties {
     public void setTimeoutMs(int timeoutMs) {
         this.timeoutMs = timeoutMs;
     }
+
+    /**
+     * Returns the maximum number of stack frames included in error payloads.
+     *
+     * @return max stack frames (default 100)
+     */
+    public int getMaxStackFrames() {
+        return maxStackFrames;
+    }
+
+    /**
+     * Sets the maximum number of stack frames included in error payloads.
+     *
+     * @param maxStackFrames positive frame cap; non-positive values fall back to 100
+     */
+    public void setMaxStackFrames(int maxStackFrames) {
+        this.maxStackFrames = maxStackFrames > 0 ? maxStackFrames : 100;
+    }
+
 }

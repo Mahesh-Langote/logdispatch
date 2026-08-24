@@ -46,6 +46,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final Set<String> maskedHeaders;
     private final List<String> excludePaths;
     private final Executor dispatchExecutor;
+    private final int maxStackFrames;
     
     private static final AntPathMatcher ANT_PATH_MATCHER = new AntPathMatcher();
 
@@ -74,7 +75,12 @@ public class LogDispatchFilter extends OncePerRequestFilter {
      */
     public LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
             List<String> excludePaths, int timeoutMs) {
-        this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null, timeoutMs);
+        this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null, timeoutMs, 100);
+    }
+
+    public LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
+            List<String> excludePaths, int timeoutMs, int maxStackFrames) {
+        this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null, timeoutMs, maxStackFrames);
     }
 
     LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths,
@@ -84,10 +90,17 @@ public class LogDispatchFilter extends OncePerRequestFilter {
 
     LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
             List<String> excludePaths, RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs) {
+        this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, restTemplate, dispatchExecutor, timeoutMs, 100);
+    }
+
+    LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
+            List<String> excludePaths, RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs,
+            int maxStackFrames) {
         this.enabled = enabled;
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
         this.timeoutMs = (timeoutMs > 0) ? timeoutMs : 3000;
+        this.maxStackFrames = maxStackFrames > 0 ? maxStackFrames : 100;
         this.dispatchExecutor = dispatchExecutor;
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
         
@@ -259,8 +272,15 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
 
                 StringBuilder stackTrace = new StringBuilder();
-                for (StackTraceElement element : ex.getStackTrace()) {
-                    stackTrace.append(element.toString()).append("\n");
+                StackTraceElement[] frames = ex.getStackTrace();
+                int limit = Math.min(frames.length, maxStackFrames);
+                for (int i = 0; i < limit; i++) {
+                    stackTrace.append(frames[i].toString()).append("\n");
+                }
+                if (frames.length > limit) {
+                    stackTrace.append("... ")
+                            .append(frames.length - limit)
+                            .append(" more frames truncated\n");
                 }
                 
                 LogDispatchPayload payload = new LogDispatchPayload(
