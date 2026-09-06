@@ -19,7 +19,7 @@ public record LogDispatchPayload(
         String stackTrace,
         String severity,
         Map<String, Object> inputInformation,
-        List<ExecutionLogEntry> executionLogs
+        List<String> executionLogs
 ) {
     /**
      * Backward-compatible constructor for 12-argument calls.

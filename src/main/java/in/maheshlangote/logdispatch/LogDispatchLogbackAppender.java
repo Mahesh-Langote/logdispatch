@@ -79,24 +79,22 @@ public class LogDispatchLogbackAppender extends AppenderBase<ILoggingEvent> {
 
         String timestamp = Instant.ofEpochMilli(event.getTimeStamp()).toString();
         String level = event.getLevel() != null ? event.getLevel().toString() : "INFO";
-        String threadName = event.getThreadName();
         String message = event.getFormattedMessage();
 
-        String throwableStr = null;
+        StringBuilder formatted = new StringBuilder();
+        formatted.append(timestamp).append(" ")
+                 .append(level).append(" ")
+                 .append(loggerName).append(" : ")
+                 .append(message);
+
         IThrowableProxy throwableProxy = event.getThrowableProxy();
         if (throwableProxy != null) {
-            throwableStr = ThrowableProxyUtil.asString(throwableProxy);
+            String throwableStr = ThrowableProxyUtil.asString(throwableProxy);
+            if (throwableStr != null && !throwableStr.isEmpty()) {
+                formatted.append("\n").append(throwableStr);
+            }
         }
 
-        ExecutionLogEntry entry = new ExecutionLogEntry(
-                timestamp,
-                level,
-                loggerName,
-                threadName,
-                message,
-                throwableStr
-        );
-
-        LogDispatchLogBuffer.append(entry, maxEntries, minLevel);
+        LogDispatchLogBuffer.append(formatted.toString(), minLevel, level);
     }
 }

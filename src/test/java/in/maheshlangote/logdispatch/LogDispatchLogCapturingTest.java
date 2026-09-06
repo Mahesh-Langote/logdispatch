@@ -74,11 +74,11 @@ class LogDispatchLogCapturingTest extends LogDispatchFilterBaseTest {
         assertNotNull(payload.executionLogs());
         assertFalse(payload.executionLogs().isEmpty());
 
-        List<ExecutionLogEntry> logs = payload.executionLogs();
-        assertTrue(logs.stream().anyMatch(l -> "DEBUG".equals(l.level()) && l.message().contains("Debug log message")));
-        assertTrue(logs.stream().anyMatch(l -> "INFO".equals(l.level()) && l.message().contains("Info log message")));
-        assertTrue(logs.stream().anyMatch(l -> "WARN".equals(l.level()) && l.message().contains("Warn log message")));
-        assertTrue(logs.stream().anyMatch(l -> "ERROR".equals(l.level()) && l.message().contains("Error log message")));
+        List<String> logs = payload.executionLogs();
+        assertTrue(logs.stream().anyMatch(l -> l.contains("DEBUG") && l.contains("Debug log message")));
+        assertTrue(logs.stream().anyMatch(l -> l.contains("INFO") && l.contains("Info log message")));
+        assertTrue(logs.stream().anyMatch(l -> l.contains("WARN") && l.contains("Warn log message")));
+        assertTrue(logs.stream().anyMatch(l -> l.contains("ERROR") && l.contains("Error log message")));
 
         // Verify buffer was cleaned up after request
         assertFalse(LogDispatchLogBuffer.isInitialized());
@@ -109,12 +109,12 @@ class LogDispatchLogCapturingTest extends LogDispatchFilterBaseTest {
 
         LogDispatchPayload payload = captor.getValue().getBody();
         assertNotNull(payload);
-        List<ExecutionLogEntry> logs = payload.executionLogs();
+        List<String> logs = payload.executionLogs();
 
         // Hikari log should be excluded
-        assertFalse(logs.stream().anyMatch(l -> l.loggerName().contains("hikari")));
+        assertFalse(logs.stream().anyMatch(l -> l.contains("hikari")));
         // Developer log should be present
-        assertTrue(logs.stream().anyMatch(l -> l.loggerName().contains("UserService") && l.message().contains("User details")));
+        assertTrue(logs.stream().anyMatch(l -> l.contains("UserService") && l.contains("User details")));
     }
 
     @Test
@@ -142,10 +142,10 @@ class LogDispatchLogCapturingTest extends LogDispatchFilterBaseTest {
 
         LogDispatchPayload payload = captor.getValue().getBody();
         assertNotNull(payload);
-        List<ExecutionLogEntry> logs = payload.executionLogs();
+        List<String> logs = payload.executionLogs();
 
-        assertFalse(logs.stream().anyMatch(l -> l.loggerName().contains("ContainerBase")));
-        assertTrue(logs.stream().anyMatch(l -> l.loggerName().contains("OrderController") && l.message().contains("order #123")));
+        assertFalse(logs.stream().anyMatch(l -> l.contains("ContainerBase")));
+        assertTrue(logs.stream().anyMatch(l -> l.contains("OrderController") && l.contains("order #123")));
     }
 
     @Test
@@ -172,9 +172,40 @@ class LogDispatchLogCapturingTest extends LogDispatchFilterBaseTest {
 
         LogDispatchPayload payload = captor.getValue().getBody();
         assertNotNull(payload);
-        List<ExecutionLogEntry> logs = payload.executionLogs();
+        List<String> logs = payload.executionLogs();
 
-        assertTrue(logs.stream().anyMatch(l -> "DEBUG".equals(l.level())));
-        assertTrue(logs.stream().anyMatch(l -> "INFO".equals(l.level())));
+        assertTrue(logs.stream().anyMatch(l -> l.contains("DEBUG") && l.contains("Debug message")));
+        assertTrue(logs.stream().anyMatch(l -> l.contains("INFO") && l.contains("Info message")));
+    }
+
+    @Test
+    void testBufferCapturesBeyondOld50LimitAndCapsAt128Kb() throws ServletException, IOException {
+        LogDispatchFilter localFilter = filterWith(List.of(), List.of());
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/test-128kb");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setStatus(500);
+
+        org.slf4j.Logger logger = LoggerFactory.getLogger("com.musterdekho.service.MassiveService");
+
+        FilterChain filterChain = (req, res) -> {
+            // Log 80 entries — beyond old 50-entry limit
+            for (int i = 1; i <= 80; i++) {
+                logger.info("Iterative execution log number " + i);
+            }
+        };
+
+        localFilter.doFilter(request, response, filterChain);
+
+        ArgumentCaptor<HttpEntity<LogDispatchPayload>> captor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).postForEntity(eq(SERVER_URL), captor.capture(), eq(String.class));
+
+        LogDispatchPayload payload = captor.getValue().getBody();
+        assertNotNull(payload);
+        List<String> logs = payload.executionLogs();
+
+        // Must have captured all 80 logs (no 50-entry cap)
+        assertEquals(80, logs.size());
+        assertTrue(logs.stream().anyMatch(l -> l.contains("log number 80")));
     }
 }

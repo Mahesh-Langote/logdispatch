@@ -14,7 +14,6 @@ logdispatch:
   exclude-paths: "/logdispatch/health"
   logs:
     enabled: true
-    max-entries: 50
     min-level: "DEBUG"
     exclude-loggers:
       - "com.zaxxer.hikari"

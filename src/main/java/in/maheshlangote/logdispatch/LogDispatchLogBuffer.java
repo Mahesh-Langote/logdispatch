@@ -7,10 +7,24 @@ import java.util.Locale;
 
 /**
  * Manages a thread-local log buffer for capturing logs generated during an HTTP request.
+ * Automatically caps total accumulated execution log size to 128 KB to prevent payload bloat
+ * and database truncation.
  */
 public class LogDispatchLogBuffer {
 
-    private static final ThreadLocal<List<ExecutionLogEntry>> THREAD_LOCAL_BUFFER = new ThreadLocal<>();
+    /** Maximum allowed buffer size in bytes/characters (128 KB). */
+    public static final int MAX_BUFFER_BYTES = 128 * 1024;
+
+    private static final String TRUNCATION_NOTICE =
+            "[LogDispatch] Execution log limit reached (128 KB). Subsequent logs truncated.";
+
+    private static final ThreadLocal<BufferState> THREAD_LOCAL_BUFFER = new ThreadLocal<>();
+
+    private static class BufferState {
+        private final List<String> logs = new ArrayList<>();
+        private int currentBytes = 0;
+        private boolean limitReached = false;
+    }
 
     private LogDispatchLogBuffer() {
         // Utility class
@@ -20,29 +34,54 @@ public class LogDispatchLogBuffer {
      * Initializes a fresh log buffer for the current thread.
      */
     public static void init() {
-        THREAD_LOCAL_BUFFER.set(new ArrayList<>());
+        THREAD_LOCAL_BUFFER.set(new BufferState());
     }
 
     /**
-     * Appends an ExecutionLogEntry to the current thread's buffer if active and within limit/level.
+     * Appends a formatted log string to the current thread's buffer if active and within 128 KB limit.
      *
-     * @param entry the log entry
-     * @param maxEntries maximum allowed entries in buffer
+     * @param formattedLog the console-style formatted log line
      * @param minLevel minimum log level string (e.g. TRACE, DEBUG, INFO, WARN, ERROR)
+     * @param eventLevel level of the current event
+     */
+    public static void append(String formattedLog, String minLevel, String eventLevel) {
+        BufferState state = THREAD_LOCAL_BUFFER.get();
+        if (state == null || formattedLog == null) {
+            return;
+        }
+
+        if (!isLevelAllowed(eventLevel, minLevel)) {
+            return;
+        }
+
+        if (state.limitReached) {
+            return;
+        }
+
+        int logLength = formattedLog.length();
+        if (state.currentBytes + logLength <= MAX_BUFFER_BYTES) {
+            state.logs.add(formattedLog);
+            state.currentBytes += logLength;
+        } else {
+            state.limitReached = true;
+            state.logs.add(TRUNCATION_NOTICE);
+        }
+    }
+
+    /**
+     * Backward-compatible append method for ExecutionLogEntry.
      */
     public static void append(ExecutionLogEntry entry, int maxEntries, String minLevel) {
-        List<ExecutionLogEntry> buffer = THREAD_LOCAL_BUFFER.get();
-        if (buffer == null || entry == null) {
-            return;
+        if (entry == null) return;
+        StringBuilder sb = new StringBuilder();
+        sb.append(entry.timestamp()).append(" ")
+          .append(entry.level()).append(" ")
+          .append(entry.loggerName()).append(" : ")
+          .append(entry.message());
+        if (entry.throwable() != null) {
+            sb.append("\n").append(entry.throwable());
         }
-
-        if (!isLevelAllowed(entry.level(), minLevel)) {
-            return;
-        }
-
-        if (buffer.size() < maxEntries) {
-            buffer.add(entry);
-        }
+        append(sb.toString(), minLevel, entry.level());
     }
 
     /**
@@ -50,12 +89,12 @@ public class LogDispatchLogBuffer {
      *
      * @return unmodifiable list of captured logs, or empty list if none
      */
-    public static List<ExecutionLogEntry> getLogs() {
-        List<ExecutionLogEntry> buffer = THREAD_LOCAL_BUFFER.get();
-        if (buffer == null || buffer.isEmpty()) {
+    public static List<String> getLogs() {
+        BufferState state = THREAD_LOCAL_BUFFER.get();
+        if (state == null || state.logs.isEmpty()) {
             return Collections.emptyList();
         }
-        return Collections.unmodifiableList(new ArrayList<>(buffer));
+        return Collections.unmodifiableList(new ArrayList<>(state.logs));
     }
 
     /**

@@ -30,7 +30,7 @@ Add the dependency to your `pom.xml`:
 <dependency>
     <groupId>in.maheshlangote</groupId>
     <artifactId>logdispatch-spring-boot-starter</artifactId>
-    <version>1.0.9</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -48,7 +48,6 @@ logdispatch:
   exclude-paths: "/health,/actuator/**,/metrics/**"
   logs:
     enabled: true
-    max-entries: 50
     min-level: "DEBUG"
     exclude-loggers:
       - "com.zaxxer.hikari"
@@ -64,7 +63,6 @@ logdispatch.timeout-ms=3000
 logdispatch.masked-headers=authorization,cookie,x-api-key
 logdispatch.exclude-paths=/health,/actuator/**,/metrics/**
 logdispatch.logs.enabled=true
-logdispatch.logs.max-entries=50
 logdispatch.logs.min-level=DEBUG
 logdispatch.logs.exclude-loggers=com.zaxxer.hikari
 ```
@@ -80,8 +78,7 @@ logdispatch.logs.exclude-loggers=com.zaxxer.hikari
 | `logdispatch.masked-headers` | ❌ No | `[]` | Comma-separated list of HTTP headers to mask (e.g. `authorization`). |
 | `logdispatch.exclude-paths` | ❌ No | `[]` | Comma-separated list of URI paths to exclude (supports wildcards like `/actuator/**`). |
 | `logdispatch.health.enabled` | ❌ No | `true` | Enables or disables registering the `/logdispatch/health` endpoint. |
-| `logdispatch.logs.enabled` | ❌ No | `true` | Enables capturing developer execution debug logs during failing requests. |
-| `logdispatch.logs.max-entries` | ❌ No | `50` | Maximum number of log lines to retain per request. |
+| `logdispatch.logs.enabled` | ❌ No | `true` | Enables capturing developer execution debug logs during failing requests (buffered up to 128 KB). |
 | `logdispatch.logs.min-level` | ❌ No | `DEBUG` | Minimum log level to capture (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`). |
 | `logdispatch.logs.exclude-loggers` | ❌ No | `[]` | List or comma-separated prefixes of logger names to ignore (e.g. `com.zaxxer.hikari`). |
 | `logdispatch.logs.include-loggers` | ❌ No | `[]` | List or comma-separated prefixes of logger names to exclusively capture (empty captures all). |
@@ -153,30 +150,9 @@ Every exception is pushed as a `POST` request to the configured `server-url`.
     "body": "{\"entries\": []}"
   },
   "executionLogs": [
-    {
-      "timestamp": "2026-05-28T17:58:43.790Z",
-      "level": "INFO",
-      "loggerName": "com.example.controller.UserController",
-      "threadName": "http-nio-8080-exec-1",
-      "message": "Received request to create user",
-      "throwable": null
-    },
-    {
-      "timestamp": "2026-05-28T17:58:43.795Z",
-      "level": "DEBUG",
-      "loggerName": "com.example.service.UserService",
-      "threadName": "http-nio-8080-exec-1",
-      "message": "Validating input entries list...",
-      "throwable": null
-    },
-    {
-      "timestamp": "2026-05-28T17:58:43.802Z",
-      "level": "ERROR",
-      "loggerName": "com.example.service.UserService",
-      "threadName": "http-nio-8080-exec-1",
-      "message": "Validation failed: entries list cannot be empty",
-      "throwable": null
-    }
+    "2026-05-28T17:58:43.790Z INFO com.example.controller.UserController : Received request to create user",
+    "2026-05-28T17:58:43.795Z DEBUG com.example.service.UserService : Validating input entries list...",
+    "2026-05-28T17:58:43.802Z ERROR com.example.service.UserService : Validation failed: entries list cannot be empty"
   ]
 }
 ```

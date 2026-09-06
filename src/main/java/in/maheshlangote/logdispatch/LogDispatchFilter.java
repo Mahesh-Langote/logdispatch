@@ -113,7 +113,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 .collect(Collectors.toList());
     }
 
-    private static final int MAX_PAYLOAD_SIZE = 32 * 1024; // 32 KB
+    private static final int MAX_PAYLOAD_SIZE = 128 * 1024; // 128 KB
 
     private boolean isPathExcluded(String requestPath) {
         if (excludePaths.isEmpty()) {
@@ -183,7 +183,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 
                 if (status >= 400) {
                     Map<String, Object> inputInfo = extractInputInformation(requestToUse);
-                    List<ExecutionLogEntry> executionLogs = LogDispatchLogBuffer.getLogs();
+                    List<String> executionLogs = LogDispatchLogBuffer.getLogs();
 
                     Throwable aspectEx = (Throwable) requestToUse.getAttribute("logdispatch.exception");
                     Throwable actualEx = unhandledException != null ? unhandledException : aspectEx;
@@ -210,7 +210,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         }
     }
 
-    private void pushFilterErrorAsync(HttpServletRequest request, int statusCode, Map<String, Object> inputInfo, List<ExecutionLogEntry> executionLogs) {
+    private void pushFilterErrorAsync(HttpServletRequest request, int statusCode, Map<String, Object> inputInfo, List<String> executionLogs) {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
@@ -250,7 +250,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         });
     }
 
-    private void pushErrorAsync(HttpServletRequest request, int statusCode, Throwable ex, String feature, String api, String function, Map<String, Object> inputInfo, List<ExecutionLogEntry> executionLogs) {
+    private void pushErrorAsync(HttpServletRequest request, int statusCode, Throwable ex, String feature, String api, String function, Map<String, Object> inputInfo, List<String> executionLogs) {
         String path = request.getRequestURI();
         String method = request.getMethod();
         

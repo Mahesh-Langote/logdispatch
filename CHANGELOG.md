@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-09-06
+### Added
+- Formatted `executionLogs` as pure console-style log strings (`${timestamp} ${level} ${loggerName} : ${message}`), eliminating `threadName`, redundant JSON metadata, and null fields (Option B).
+- Implemented an internal 128 KB execution log buffer limit (`MAX_BUFFER_BYTES`), capturing all request logs without arbitrary 50-entry count caps while preventing database truncation.
+- Increased `MAX_PAYLOAD_SIZE` for request body caching to 128 KB.
+
 ## [1.0.9] - 2026-09-06
 ### Added
 - Added `logdispatch.logs.exclude-loggers` configuration property to filter out noisy infrastructure loggers (e.g. `com.zaxxer.hikari`) from request execution logs.
