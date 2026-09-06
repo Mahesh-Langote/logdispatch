@@ -3,7 +3,10 @@ package in.maheshlangote.logdispatch.config;
 import in.maheshlangote.logdispatch.LogDispatchAspect;
 import in.maheshlangote.logdispatch.LogDispatchFilter;
 import in.maheshlangote.logdispatch.LogDispatchHealthController;
+import in.maheshlangote.logdispatch.LogDispatchLogbackAppender;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -62,6 +65,36 @@ public class LogDispatchAutoConfiguration {
         // Use Highest Precedence to ensure it wraps everything including security filters
         registrationBean.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return registrationBean;
+    }
+
+    /**
+     * Creates and attaches the Logback appender to capture developer debug logs during HTTP requests.
+     *
+     * @param properties LogDispatch configuration properties
+     * @return a configured {@link LogDispatchLogbackAppender}.
+     */
+    @Bean
+    @ConditionalOnClass(name = "ch.qos.logback.classic.LoggerContext")
+    @ConditionalOnProperty(
+            prefix = "logdispatch.logs",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true
+    )
+    public LogDispatchLogbackAppender logDispatchLogbackAppender(LogDispatchProperties properties) {
+        LogDispatchLogbackAppender appender = new LogDispatchLogbackAppender();
+        appender.setMaxEntries(properties.getLogs().getMaxEntries());
+        appender.setMinLevel(properties.getLogs().getMinLevel());
+
+        org.slf4j.ILoggerFactory factory = LoggerFactory.getILoggerFactory();
+        if (factory instanceof ch.qos.logback.classic.LoggerContext loggerContext) {
+            appender.setContext(loggerContext);
+            appender.start();
+            ch.qos.logback.classic.Logger rootLogger = loggerContext.getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+            rootLogger.addAppender(appender);
+        }
+
+        return appender;
     }
 
     /**

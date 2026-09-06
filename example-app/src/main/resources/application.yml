@@ -9,5 +9,10 @@ logdispatch:
   enabled: true
   server-url: "http://localhost:8081/api/v1/ingest/logs"
   api-key: "demo-api-key"
+  timeout-ms: 3000
   masked-headers: "authorization,cookie,x-api-key"
   exclude-paths: "/logdispatch/health"
+  logs:
+    enabled: true
+    max-entries: 50
+    min-level: "DEBUG"

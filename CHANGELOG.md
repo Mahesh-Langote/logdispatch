@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - Pending Maven Release
+### Added
+- Added developer execution debug log capturing (`executionLogs`) per-request thread via SLF4J/Logback integration (`DEBUG`, `INFO`, `WARN`, `ERROR`).
+- Added `logdispatch.logs.enabled`, `logdispatch.logs.max-entries`, and `logdispatch.logs.min-level` configuration properties.
+- Added `logdispatch.health.enabled` configuration property to allow opting out of registering the `/logdispatch/health` endpoint (PR #46).
+- Added `logdispatch.enabled` master toggle property (PR #40).
+- Added configurable connection and read timeouts (`timeoutMs`) via `logdispatch.timeout-ms` (PR #38).
+- Added `example-app` Spring Boot reference implementation (PR #39).
+
 ## [1.0.7] - 2026-06-20
 ### Added
 - Implemented a new `SECURITY` severity classification for unhandled filter-level exceptions.
