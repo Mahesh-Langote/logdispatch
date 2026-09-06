@@ -57,6 +57,8 @@ public class LogDispatchProperties {
         private boolean enabled = true;
         private int maxEntries = 50;
         private String minLevel = "DEBUG";
+        private List<String> excludeLoggers = List.of();
+        private List<String> includeLoggers = List.of();
 
         public boolean isEnabled() {
             return enabled;
@@ -80,6 +82,22 @@ public class LogDispatchProperties {
 
         public void setMinLevel(String minLevel) {
             this.minLevel = minLevel;
+        }
+
+        public List<String> getExcludeLoggers() {
+            return excludeLoggers;
+        }
+
+        public void setExcludeLoggers(List<String> excludeLoggers) {
+            this.excludeLoggers = excludeLoggers != null ? excludeLoggers : List.of();
+        }
+
+        public List<String> getIncludeLoggers() {
+            return includeLoggers;
+        }
+
+        public void setIncludeLoggers(List<String> includeLoggers) {
+            this.includeLoggers = includeLoggers != null ? includeLoggers : List.of();
         }
     }
 

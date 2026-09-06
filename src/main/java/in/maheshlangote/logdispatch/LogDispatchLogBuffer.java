@@ -82,6 +82,23 @@ public class LogDispatchLogBuffer {
 
     private static int getLevelScore(String level) {
         if (level == null) return 0;
+        String trimmed = level.trim();
+        if (trimmed.contains(",")) {
+            String[] parts = trimmed.split(",");
+            int minScore = Integer.MAX_VALUE;
+            for (String part : parts) {
+                int score = getSingleLevelScore(part.trim());
+                if (score > 0 && score < minScore) {
+                    minScore = score;
+                }
+            }
+            return minScore == Integer.MAX_VALUE ? 0 : minScore;
+        }
+        return getSingleLevelScore(trimmed);
+    }
+
+    private static int getSingleLevelScore(String level) {
+        if (level == null) return 0;
         switch (level.toUpperCase(Locale.ROOT)) {
             case "TRACE":
                 return 1;

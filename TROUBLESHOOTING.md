@@ -92,3 +92,31 @@ Duplicate entries typically occur in one of these scenarios:
 3. **Filter and Aspect overlap:** The `LogDispatchAspect` captures exceptions from `@RestController` methods, stores them in request attributes, and the `LogDispatchFilter` picks them up in its `finally` block. This produces a single dispatch per error — but if your security filter or custom filter also triggers an error response, both may be recorded.
 
 **To diagnose:** Check your application logs for duplicate `WARN [LogDispatch]` entries and verify the `errorPath` and `timestamp` fields in the duplicate payloads to trace the origin.
+
+---
+
+## Why are noisy third-party logs (e.g. HikariCP, Tomcat) appearing in execution logs?
+
+Because LogDispatch captures execution logs during HTTP request threads via Logback, logs emitted by connection pools (e.g. `com.zaxxer.hikari.pool.PoolBase`) or web servers on the same thread may be captured.
+
+To filter out these logs and keep only high-value developer logs:
+
+```yaml
+logdispatch:
+  logs:
+    enabled: true
+    exclude-loggers:
+      - "com.zaxxer.hikari"
+      - "org.apache.catalina"
+```
+
+Or restrict capturing exclusively to your application package:
+
+```yaml
+logdispatch:
+  logs:
+    enabled: true
+    include-loggers:
+      - "com.example.myapp"
+```
+

@@ -30,7 +30,7 @@ Add the dependency to your `pom.xml`:
 <dependency>
     <groupId>in.maheshlangote</groupId>
     <artifactId>logdispatch-spring-boot-starter</artifactId>
-    <version>1.0.8</version>
+    <version>1.0.9</version>
 </dependency>
 ```
 
@@ -50,6 +50,8 @@ logdispatch:
     enabled: true
     max-entries: 50
     min-level: "DEBUG"
+    exclude-loggers:
+      - "com.zaxxer.hikari"
 ```
 
 ### application.properties
@@ -64,6 +66,7 @@ logdispatch.exclude-paths=/health,/actuator/**,/metrics/**
 logdispatch.logs.enabled=true
 logdispatch.logs.max-entries=50
 logdispatch.logs.min-level=DEBUG
+logdispatch.logs.exclude-loggers=com.zaxxer.hikari
 ```
 
 ### Configuration Properties
@@ -80,6 +83,8 @@ logdispatch.logs.min-level=DEBUG
 | `logdispatch.logs.enabled` | ❌ No | `true` | Enables capturing developer execution debug logs during failing requests. |
 | `logdispatch.logs.max-entries` | ❌ No | `50` | Maximum number of log lines to retain per request. |
 | `logdispatch.logs.min-level` | ❌ No | `DEBUG` | Minimum log level to capture (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`). |
+| `logdispatch.logs.exclude-loggers` | ❌ No | `[]` | List or comma-separated prefixes of logger names to ignore (e.g. `com.zaxxer.hikari`). |
+| `logdispatch.logs.include-loggers` | ❌ No | `[]` | List or comma-separated prefixes of logger names to exclusively capture (empty captures all). |
 
 Disable LogDispatch in local or test profiles when you want the dependency on the classpath but do not want any APM activity:
 

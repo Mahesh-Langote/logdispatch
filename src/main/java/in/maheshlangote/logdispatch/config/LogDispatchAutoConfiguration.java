@@ -85,6 +85,8 @@ public class LogDispatchAutoConfiguration {
         LogDispatchLogbackAppender appender = new LogDispatchLogbackAppender();
         appender.setMaxEntries(properties.getLogs().getMaxEntries());
         appender.setMinLevel(properties.getLogs().getMinLevel());
+        appender.setExcludeLoggers(properties.getLogs().getExcludeLoggers());
+        appender.setIncludeLoggers(properties.getLogs().getIncludeLoggers());
 
         org.slf4j.ILoggerFactory factory = LoggerFactory.getILoggerFactory();
         if (factory instanceof ch.qos.logback.classic.LoggerContext loggerContext) {
