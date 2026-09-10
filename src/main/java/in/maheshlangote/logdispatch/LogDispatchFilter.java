@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
@@ -40,6 +41,8 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final String serverUrl;
     private final String apiKey;
     private final RestTemplate restTemplate;
+    private final boolean enabled;
+    private final int timeoutMs;
     private final Set<String> maskedHeaders;
     private final List<String> excludePaths;
     private final Executor dispatchExecutor;
@@ -53,17 +56,53 @@ public class LogDispatchFilter extends OncePerRequestFilter {
      * @param apiKey the authentication key required by the APM server
      * @param maskedHeaders list of headers to mask
      * @param excludePaths list of URI paths to exclude from logging (supports wildcard patterns)
+     * @param timeoutMs the HTTP connection and read timeout in milliseconds
      */
-    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths) {
-        this(serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null);
+    public LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths, int timeoutMs) {
+        this(true, serverUrl, apiKey, maskedHeaders, excludePaths, timeoutMs);
+    }
+
+    /**
+     * Constructs the LogDispatchFilter.
+     *
+     * @param enabled whether LogDispatch should inspect and dispatch request errors
+     * @param serverUrl the endpoint URL of the centralized APM server
+     * @param apiKey the authentication key required by the APM server
+     * @param maskedHeaders list of headers to mask
+     * @param excludePaths list of URI paths to exclude from logging (supports wildcard patterns)
+     * @param timeoutMs the HTTP connection and read timeout in milliseconds
+     */
+    public LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
+            List<String> excludePaths, int timeoutMs) {
+        this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null, timeoutMs);
     }
 
     LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths,
-                      RestTemplate restTemplate, Executor dispatchExecutor) {
+                      RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs) {
+        this(true, serverUrl, apiKey, maskedHeaders, excludePaths, restTemplate, dispatchExecutor, timeoutMs);
+    }
+
+    LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
+            List<String> excludePaths, RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs) {
+        this.enabled = enabled;
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
-        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
+        this.timeoutMs = (timeoutMs > 0) ? timeoutMs : 3000;
         this.dispatchExecutor = dispatchExecutor;
+        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
+        
+        // Configure the timeout on the RestTemplate's underlying request factory
+        if (this.restTemplate.getRequestFactory() instanceof SimpleClientHttpRequestFactory) {
+            SimpleClientHttpRequestFactory factory = (SimpleClientHttpRequestFactory) this.restTemplate.getRequestFactory();
+            factory.setConnectTimeout(this.timeoutMs);
+            factory.setReadTimeout(this.timeoutMs);
+        } else {
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(this.timeoutMs);
+            factory.setReadTimeout(this.timeoutMs);
+            this.restTemplate.setRequestFactory(factory);
+        }
+
         this.maskedHeaders = maskedHeaders == null ? Set.of() : maskedHeaders.stream()
                 .filter(h -> h != null && !h.trim().isEmpty())
                 .map(h -> h.trim().toLowerCase(Locale.ROOT))
@@ -74,7 +113,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 .collect(Collectors.toList());
     }
 
-    private static final int MAX_PAYLOAD_SIZE = 32 * 1024; // 32 KB
+    private static final int MAX_PAYLOAD_SIZE = 128 * 1024; // 128 KB
 
     private boolean isPathExcluded(String requestPath) {
         if (excludePaths.isEmpty()) {
@@ -107,7 +146,11 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        
+        if (!enabled) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         // Check if the request path is excluded
         String requestPath = request.getRequestURI();
         if (isPathExcluded(requestPath)) {
@@ -124,44 +167,50 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         
         Throwable unhandledException = null;
         try {
+            LogDispatchLogBuffer.init();
             filterChain.doFilter(requestToUse, response);
         } catch (Exception ex) {
             unhandledException = ex;
             throw ex;
         } finally {
-            // After the request has been processed, inspect the final status.
-            int status = response.getStatus();
-            if (unhandledException != null) {
-                // Unhandled exceptions bubbling out of the filter chain result in a 500
-                status = 500;
-            }
-            
-            if (status >= 400) {
-                Map<String, Object> inputInfo = extractInputInformation(requestToUse);
-
-                Throwable aspectEx = (Throwable) requestToUse.getAttribute("logdispatch.exception");
-                Throwable actualEx = unhandledException != null ? unhandledException : aspectEx;
-
-                if (actualEx != null) {
-                    // We have exception details (either from the Aspect or from an unhandled filter exception)
-                    String feature = (String) requestToUse.getAttribute("logdispatch.feature");
-                    String api = (String) requestToUse.getAttribute("logdispatch.api");
-                    String function = (String) requestToUse.getAttribute("logdispatch.function");
-                    
-                    if (feature == null) feature = actualEx.getClass().getSimpleName();
-                    if (api == null) api = requestToUse.getRequestURI();
-                    if (function == null) function = "UNKNOWN";
-
-                    pushErrorAsync(requestToUse, status, actualEx, feature, api, function, inputInfo);
-                } else {
-                    // Pure filter-level error (e.g. 403 Forbidden via security filter, no exception thrown)
-                    pushFilterErrorAsync(requestToUse, status, inputInfo);
+            try {
+                // After the request has been processed, inspect the final status.
+                int status = response.getStatus();
+                if (unhandledException != null) {
+                    // Unhandled exceptions bubbling out of the filter chain result in a 500
+                    status = 500;
                 }
+                
+                if (status >= 400) {
+                    Map<String, Object> inputInfo = extractInputInformation(requestToUse);
+                    List<String> executionLogs = LogDispatchLogBuffer.getLogs();
+
+                    Throwable aspectEx = (Throwable) requestToUse.getAttribute("logdispatch.exception");
+                    Throwable actualEx = unhandledException != null ? unhandledException : aspectEx;
+
+                    if (actualEx != null) {
+                        // We have exception details (either from the Aspect or from an unhandled filter exception)
+                        String feature = (String) requestToUse.getAttribute("logdispatch.feature");
+                        String api = (String) requestToUse.getAttribute("logdispatch.api");
+                        String function = (String) requestToUse.getAttribute("logdispatch.function");
+                        
+                        if (feature == null) feature = actualEx.getClass().getSimpleName();
+                        if (api == null) api = requestToUse.getRequestURI();
+                        if (function == null) function = "UNKNOWN";
+
+                        pushErrorAsync(requestToUse, status, actualEx, feature, api, function, inputInfo, executionLogs);
+                    } else {
+                        // Pure filter-level error (e.g. 403 Forbidden via security filter, no exception thrown)
+                        pushFilterErrorAsync(requestToUse, status, inputInfo, executionLogs);
+                    }
+                }
+            } finally {
+                LogDispatchLogBuffer.clear();
             }
         }
     }
 
-    private void pushFilterErrorAsync(HttpServletRequest request, int statusCode, Map<String, Object> inputInfo) {
+    private void pushFilterErrorAsync(HttpServletRequest request, int statusCode, Map<String, Object> inputInfo, List<String> executionLogs) {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
@@ -182,7 +231,8 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                         "doFilter",
                         "No stack trace available for filter-level status codes.",
                         severity,
-                        inputInfo
+                        inputInfo,
+                        executionLogs
                 );
 
                 HttpHeaders headers = new HttpHeaders();
@@ -200,13 +250,16 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         });
     }
 
-    private void pushErrorAsync(HttpServletRequest request, int statusCode, Throwable ex, String feature, String api, String function, Map<String, Object> inputInfo) {
+    private void pushErrorAsync(HttpServletRequest request, int statusCode, Throwable ex, String feature, String api, String function, Map<String, Object> inputInfo, List<String> executionLogs) {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
         dispatchAsync(() -> {
             try {
-                String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
+                String customSeverity = (String) request.getAttribute("logdispatch.severity");
+                String severity = (customSeverity != null && !customSeverity.isEmpty())
+                        ? customSeverity
+                        : ((statusCode >= 500) ? "CRITICAL" : "WARNING");
 
                 StringBuilder stackTrace = new StringBuilder();
                 for (StackTraceElement element : ex.getStackTrace()) {
@@ -225,7 +278,8 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                         function,
                         stackTrace.toString(),
                         severity,
-                        inputInfo
+                        inputInfo,
+                        executionLogs
                 );
 
                 HttpHeaders headers = new HttpHeaders();

@@ -36,7 +36,8 @@ public abstract class LogDispatchFilterBaseTest {
     }
 
     protected LogDispatchFilter filterWith(List<String> maskedHeaders, List<String> excludePaths) {
-        return new LogDispatchFilter(SERVER_URL, API_KEY, maskedHeaders, excludePaths, restTemplate, Runnable::run);
+        // Appended 3000 as the final argument to match your new constructor signature
+        return new LogDispatchFilter(SERVER_URL, API_KEY, maskedHeaders, excludePaths, restTemplate, Runnable::run, 3000);
     }
 
     protected static MockHttpServletRequest request(String method, String path) {

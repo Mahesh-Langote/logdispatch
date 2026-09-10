@@ -1,6 +1,7 @@
 package in.maheshlangote.logdispatch;
 
 import in.maheshlangote.logdispatch.annotation.LogDispatch;
+import in.maheshlangote.logdispatch.annotation.LogSeverity;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.AfterEach;
@@ -15,6 +16,7 @@ import java.lang.reflect.Method;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("LogDispatch Aspect Tests")
@@ -60,6 +62,7 @@ class LogDispatchAspectTest {
         assertThat(request.getAttribute("logdispatch.feature")).isEqualTo("DummyController");
         assertThat(request.getAttribute("logdispatch.function")).isEqualTo("doSomething");
         assertThat(request.getAttribute("logdispatch.api")).isEqualTo("/api/test");
+        assertThat(request.getAttribute("logdispatch.severity")).isNull();
     }
 
     @Test
@@ -86,6 +89,28 @@ class LogDispatchAspectTest {
     }
 
     @Test
+    @DisplayName("Should populate severity attribute when specified in annotation")
+    void shouldPopulateSeverityFromAnnotation() throws Exception {
+        JoinPoint joinPoint = mock(JoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+
+        when(joinPoint.getSignature()).thenReturn(signature);
+        when(signature.getDeclaringType()).thenReturn(DummyController.class);
+        when(signature.getName()).thenReturn("doSomethingCritical");
+
+        Method method = DummyController.class.getMethod("doSomethingCritical");
+        when(signature.getMethod()).thenReturn(method);
+        when(joinPoint.getTarget()).thenReturn(new DummyController());
+
+        RuntimeException ex = new RuntimeException("Critical exception");
+
+        aspect.handleControllerException(joinPoint, ex);
+
+        assertThat(request.getAttribute("logdispatch.feature")).isEqualTo("CriticalFeature");
+        assertThat(request.getAttribute("logdispatch.severity")).isEqualTo("CRITICAL");
+    }
+
+    @Test
     @DisplayName("Should gracefully handle null request context")
     void shouldHandleNullRequestContextGracefully() throws Exception {
         RequestContextHolder.resetRequestAttributes(); // Remove context
@@ -107,11 +132,31 @@ class LogDispatchAspectTest {
         aspect.handleControllerException(joinPoint, ex);
     }
 
+    @Test
+    @DisplayName("Should no-op when LogDispatch is disabled")
+    void shouldNoOpWhenDisabled() {
+        LogDispatchAspect disabledAspect = new LogDispatchAspect(false);
+        JoinPoint joinPoint = mock(JoinPoint.class);
+
+        disabledAspect.handleControllerException(joinPoint, new RuntimeException("Test exception"));
+
+        assertThat(request.getAttribute("logdispatch.handled")).isNull();
+        assertThat(request.getAttribute("logdispatch.exception")).isNull();
+        assertThat(request.getAttribute("logdispatch.feature")).isNull();
+        assertThat(request.getAttribute("logdispatch.api")).isNull();
+        assertThat(request.getAttribute("logdispatch.function")).isNull();
+        assertThat(request.getAttribute("logdispatch.severity")).isNull();
+        verifyNoInteractions(joinPoint);
+    }
+
     // Dummy controller for reflection
     static class DummyController {
         public void doSomething() {}
 
         @LogDispatch(feature = "CustomFeature", api = "/custom/api", function = "customFunction")
         public void doSomethingAnnotated() {}
+
+        @LogDispatch(feature = "CriticalFeature", severity = LogSeverity.CRITICAL)
+        public void doSomethingCritical() {}
     }
 }
