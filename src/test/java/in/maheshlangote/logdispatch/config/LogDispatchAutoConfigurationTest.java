@@ -2,6 +2,7 @@ package in.maheshlangote.logdispatch.config;
 
 import in.maheshlangote.logdispatch.LogDispatchAspect;
 import in.maheshlangote.logdispatch.LogDispatchHealthController;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -32,6 +33,16 @@ class LogDispatchAutoConfigurationTest {
                     assertThat(context.getBean(LogDispatchProperties.class).isEnabled()).isFalse();
                 });
     }
+
+    @Test
+    @DisplayName("Should bind the configured stack trace frame limit")
+    void shouldBindConfiguredStackTraceFrameLimit() {
+        contextRunner
+                .withPropertyValues("logdispatch.max-stack-frames=25")
+                .run(context -> assertThat(context.getBean(LogDispatchProperties.class).getMaxStackFrames())
+                        .isEqualTo(25));
+    }
+
     @Test
     void shouldNotRegisterHealthControllerWhenHealthDisabled() {
         contextRunner

@@ -44,6 +44,7 @@ logdispatch:
   server-url: "https://your-apm-server.com/api/v1/ingest/logs"
   api-key: "your-secret-api-key"
   timeout-ms: 3000
+  max-stack-frames: 100
   masked-headers: "authorization,cookie,x-api-key"
   exclude-paths: "/health,/actuator/**,/metrics/**"
   logs:
@@ -60,6 +61,7 @@ logdispatch.enabled=true
 logdispatch.server-url=https://your-apm-server.com/api/v1/ingest/logs
 logdispatch.api-key=your-secret-api-key
 logdispatch.timeout-ms=3000
+logdispatch.max-stack-frames=100
 logdispatch.masked-headers=authorization,cookie,x-api-key
 logdispatch.exclude-paths=/health,/actuator/**,/metrics/**
 logdispatch.logs.enabled=true
@@ -75,6 +77,7 @@ logdispatch.logs.exclude-loggers=com.zaxxer.hikari
 | `logdispatch.server-url` | ✅ Yes, when enabled | `http://localhost:8081/...` | Full URL of the APM ingest endpoint. |
 | `logdispatch.api-key` | ✅ Yes, when enabled | `default-key` | API key used to authenticate with the APM server. |
 | `logdispatch.timeout-ms` | ❌ No | `3000` | Connection and read timeout in milliseconds. |
+| `logdispatch.max-stack-frames` | ❌ No | `100` | Maximum number of stack trace frames included per error payload. |
 | `logdispatch.masked-headers` | ❌ No | `[]` | Comma-separated list of HTTP headers to mask (e.g. `authorization`). |
 | `logdispatch.exclude-paths` | ❌ No | `[]` | Comma-separated list of URI paths to exclude (supports wildcards like `/actuator/**`). |
 | `logdispatch.health.enabled` | ❌ No | `true` | Enables or disables registering the `/logdispatch/health` endpoint. |
@@ -107,7 +110,7 @@ When a `@RestController` method throws an unhandled exception, or when a filter 
 
 1. LogDispatch initializes a `ThreadLocal` ring buffer at the start of the request.
 2. Developer logs (`log.debug()`, `log.info()`, `log.warn()`, `log.error()`) executed during that request are captured into the buffer.
-3. If an error occurs ($\ge 400$), the SDK captures the request URI, HTTP method, exception class, stack trace, and structured execution logs.
+3. If an error occurs ($\ge 400$), the SDK captures the request URI, HTTP method, exception class, message, bounded stack trace (up to `max-stack-frames`), and structured execution logs.
 4. Asynchronously sends a JSON payload to the configured `server-url`.
 5. Includes the `X-API-KEY` header for authentication.
 6. Clears the thread-local buffer in a `finally` block to guarantee zero memory leakage.
