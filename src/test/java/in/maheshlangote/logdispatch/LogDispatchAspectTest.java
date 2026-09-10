@@ -1,6 +1,7 @@
 package in.maheshlangote.logdispatch;
 
 import in.maheshlangote.logdispatch.annotation.LogDispatch;
+import in.maheshlangote.logdispatch.annotation.LogSeverity;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.AfterEach;
@@ -61,6 +62,7 @@ class LogDispatchAspectTest {
         assertThat(request.getAttribute("logdispatch.feature")).isEqualTo("DummyController");
         assertThat(request.getAttribute("logdispatch.function")).isEqualTo("doSomething");
         assertThat(request.getAttribute("logdispatch.api")).isEqualTo("/api/test");
+        assertThat(request.getAttribute("logdispatch.severity")).isNull();
     }
 
     @Test
@@ -84,6 +86,28 @@ class LogDispatchAspectTest {
         assertThat(request.getAttribute("logdispatch.feature")).isEqualTo("CustomFeature");
         assertThat(request.getAttribute("logdispatch.function")).isEqualTo("customFunction");
         assertThat(request.getAttribute("logdispatch.api")).isEqualTo("/custom/api");
+    }
+
+    @Test
+    @DisplayName("Should populate severity attribute when specified in annotation")
+    void shouldPopulateSeverityFromAnnotation() throws Exception {
+        JoinPoint joinPoint = mock(JoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+
+        when(joinPoint.getSignature()).thenReturn(signature);
+        when(signature.getDeclaringType()).thenReturn(DummyController.class);
+        when(signature.getName()).thenReturn("doSomethingCritical");
+
+        Method method = DummyController.class.getMethod("doSomethingCritical");
+        when(signature.getMethod()).thenReturn(method);
+        when(joinPoint.getTarget()).thenReturn(new DummyController());
+
+        RuntimeException ex = new RuntimeException("Critical exception");
+
+        aspect.handleControllerException(joinPoint, ex);
+
+        assertThat(request.getAttribute("logdispatch.feature")).isEqualTo("CriticalFeature");
+        assertThat(request.getAttribute("logdispatch.severity")).isEqualTo("CRITICAL");
     }
 
     @Test
@@ -121,6 +145,7 @@ class LogDispatchAspectTest {
         assertThat(request.getAttribute("logdispatch.feature")).isNull();
         assertThat(request.getAttribute("logdispatch.api")).isNull();
         assertThat(request.getAttribute("logdispatch.function")).isNull();
+        assertThat(request.getAttribute("logdispatch.severity")).isNull();
         verifyNoInteractions(joinPoint);
     }
 
@@ -130,5 +155,8 @@ class LogDispatchAspectTest {
 
         @LogDispatch(feature = "CustomFeature", api = "/custom/api", function = "customFunction")
         public void doSomethingAnnotated() {}
+
+        @LogDispatch(feature = "CriticalFeature", severity = LogSeverity.CRITICAL)
+        public void doSomethingCritical() {}
     }
 }

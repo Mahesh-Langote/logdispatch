@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-09-10
+### Added
+- Added type-safe `LogSeverity` enum (`DEFAULT`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`, `SECURITY`, `FATAL`) for explicitly overriding severity levels per controller or method via `@LogDispatch(severity = LogSeverity.CRITICAL)`.
+- Updated `LogDispatchAspect` and `LogDispatchFilter` to capture and apply custom severity overrides from `@LogDispatch`.
+- Added standard practice guidelines for choosing severity levels in `LogSeverity` Javadoc and `README.md`.
+
+## [1.1.0] - 2026-09-06
+### Added
+- Formatted `executionLogs` as pure console-style log strings (`${timestamp} ${level} ${loggerName} : ${message}`), eliminating `threadName`, redundant JSON metadata, and null fields (Option B).
+- Implemented an internal 128 KB execution log buffer limit (`MAX_BUFFER_BYTES`), capturing all request logs without arbitrary 50-entry count caps while preventing database truncation.
+- Increased `MAX_PAYLOAD_SIZE` for request body caching to 128 KB.
+
+## [1.0.9] - 2026-09-06
+### Added
+- Added `logdispatch.logs.exclude-loggers` configuration property to filter out noisy infrastructure loggers (e.g. `com.zaxxer.hikari`) from request execution logs.
+- Added `logdispatch.logs.include-loggers` configuration property to optionally capture logs exclusively from matching logger package prefixes.
+- Resilient `min-level` parsing to gracefully support comma-separated level declarations (e.g. `DEBUG, INFO, WARN, ERROR`).
+
+## [1.0.8] - 2026-09-06
+### Added
+- Added developer execution debug log capturing (`executionLogs`) per-request thread via SLF4J/Logback integration (`DEBUG`, `INFO`, `WARN`, `ERROR`).
+- Added `logdispatch.logs.enabled`, `logdispatch.logs.max-entries`, and `logdispatch.logs.min-level` configuration properties.
+- Added `logdispatch.health.enabled` configuration property to allow opting out of registering the `/logdispatch/health` endpoint (PR #46).
+- Added `logdispatch.enabled` master toggle property (PR #40).
+- Added configurable connection and read timeouts (`timeoutMs`) via `logdispatch.timeout-ms` (PR #38).
+- Added `example-app` Spring Boot reference implementation (PR #39).
+
 ## [1.0.7] - 2026-06-20
 ### Added
 - Implemented a new `SECURITY` severity classification for unhandled filter-level exceptions.

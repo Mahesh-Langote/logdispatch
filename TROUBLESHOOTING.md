@@ -21,6 +21,19 @@ logdispatch:
 
 ---
 
+## Why are developer execution logs missing from `executionLogs`?
+
+If error payloads arrive at your APM server but `executionLogs` is empty:
+
+1. **Check property configuration:** Ensure `logdispatch.logs.enabled=true` (defaults to `true`) and `logdispatch.logs.min-level` is set appropriately (`DEBUG` by default).
+2. **Check Logback logging levels:** LogDispatch intercepts logs via SLF4J/Logback. If your application's `application.properties` or `logback.xml` sets root logger level to `INFO`, any `log.debug(...)` calls are filtered out by Logback before reaching appenders. Set `logging.level.root=DEBUG` or configure specific package log levels:
+   ```properties
+   logging.level.in.maheshlangote=DEBUG
+   ```
+3. **Log threshold capping:** Check if log lines exceeded `logdispatch.logs.max-entries` (default: 50 lines).
+
+---
+
 ## Why is the `/logdispatch/health` endpoint returning 429?
 
 The health endpoint has a built-in rate limit of **60 requests per minute per IP address**. If your APM server polls more frequently, it will receive `429 Too Many Requests` responses.
@@ -75,9 +88,35 @@ logdispatch:
 Duplicate entries typically occur in one of these scenarios:
 
 1. **Multiple instances of LogDispatch:** If your application has multiple LogDispatch configurations (e.g., manual bean registration alongside auto-configuration), the filter may be registered more than once.
-
 2. **Exception re-throwing:** If a global `@ControllerAdvice` catches an exception and re-throws it, or returns a 4xx/5xx status, the filter may capture it a second time.
-
 3. **Filter and Aspect overlap:** The `LogDispatchAspect` captures exceptions from `@RestController` methods, stores them in request attributes, and the `LogDispatchFilter` picks them up in its `finally` block. This produces a single dispatch per error — but if your security filter or custom filter also triggers an error response, both may be recorded.
 
 **To diagnose:** Check your application logs for duplicate `WARN [LogDispatch]` entries and verify the `errorPath` and `timestamp` fields in the duplicate payloads to trace the origin.
+
+---
+
+## Why are noisy third-party logs (e.g. HikariCP, Tomcat) appearing in execution logs?
+
+Because LogDispatch captures execution logs during HTTP request threads via Logback, logs emitted by connection pools (e.g. `com.zaxxer.hikari.pool.PoolBase`) or web servers on the same thread may be captured.
+
+To filter out these logs and keep only high-value developer logs:
+
+```yaml
+logdispatch:
+  logs:
+    enabled: true
+    exclude-loggers:
+      - "com.zaxxer.hikari"
+      - "org.apache.catalina"
+```
+
+Or restrict capturing exclusively to your application package:
+
+```yaml
+logdispatch:
+  logs:
+    enabled: true
+    include-loggers:
+      - "com.example.myapp"
+```
+

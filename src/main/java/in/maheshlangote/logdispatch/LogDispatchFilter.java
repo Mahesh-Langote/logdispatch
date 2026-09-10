@@ -141,7 +141,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 .collect(Collectors.toList());
     }
 
-    private static final int MAX_PAYLOAD_SIZE = 32 * 1024; // 32 KB
+    private static final int MAX_PAYLOAD_SIZE = 128 * 1024; // 128 KB
 
     private boolean isPathExcluded(String requestPath) {
         if (excludePaths.isEmpty()) {
@@ -195,44 +195,50 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         
         Throwable unhandledException = null;
         try {
+            LogDispatchLogBuffer.init();
             filterChain.doFilter(requestToUse, response);
         } catch (Exception ex) {
             unhandledException = ex;
             throw ex;
         } finally {
-            // After the request has been processed, inspect the final status.
-            int status = response.getStatus();
-            if (unhandledException != null) {
-                // Unhandled exceptions bubbling out of the filter chain result in a 500
-                status = 500;
-            }
-            
-            if (status >= 400) {
-                Map<String, Object> inputInfo = extractInputInformation(requestToUse);
-
-                Throwable aspectEx = (Throwable) requestToUse.getAttribute("logdispatch.exception");
-                Throwable actualEx = unhandledException != null ? unhandledException : aspectEx;
-
-                if (actualEx != null) {
-                    // We have exception details (either from the Aspect or from an unhandled filter exception)
-                    String feature = (String) requestToUse.getAttribute("logdispatch.feature");
-                    String api = (String) requestToUse.getAttribute("logdispatch.api");
-                    String function = (String) requestToUse.getAttribute("logdispatch.function");
-                    
-                    if (feature == null) feature = actualEx.getClass().getSimpleName();
-                    if (api == null) api = requestToUse.getRequestURI();
-                    if (function == null) function = "UNKNOWN";
-
-                    pushErrorAsync(requestToUse, status, actualEx, feature, api, function, inputInfo);
-                } else {
-                    // Pure filter-level error (e.g. 403 Forbidden via security filter, no exception thrown)
-                    pushFilterErrorAsync(requestToUse, status, inputInfo);
+            try {
+                // After the request has been processed, inspect the final status.
+                int status = response.getStatus();
+                if (unhandledException != null) {
+                    // Unhandled exceptions bubbling out of the filter chain result in a 500
+                    status = 500;
                 }
+                
+                if (status >= 400) {
+                    Map<String, Object> inputInfo = extractInputInformation(requestToUse);
+                    List<String> executionLogs = LogDispatchLogBuffer.getLogs();
+
+                    Throwable aspectEx = (Throwable) requestToUse.getAttribute("logdispatch.exception");
+                    Throwable actualEx = unhandledException != null ? unhandledException : aspectEx;
+
+                    if (actualEx != null) {
+                        // We have exception details (either from the Aspect or from an unhandled filter exception)
+                        String feature = (String) requestToUse.getAttribute("logdispatch.feature");
+                        String api = (String) requestToUse.getAttribute("logdispatch.api");
+                        String function = (String) requestToUse.getAttribute("logdispatch.function");
+                        
+                        if (feature == null) feature = actualEx.getClass().getSimpleName();
+                        if (api == null) api = requestToUse.getRequestURI();
+                        if (function == null) function = "UNKNOWN";
+
+                        pushErrorAsync(requestToUse, status, actualEx, feature, api, function, inputInfo, executionLogs);
+                    } else {
+                        // Pure filter-level error (e.g. 403 Forbidden via security filter, no exception thrown)
+                        pushFilterErrorAsync(requestToUse, status, inputInfo, executionLogs);
+                    }
+                }
+            } finally {
+                LogDispatchLogBuffer.clear();
             }
         }
     }
 
-    private void pushFilterErrorAsync(HttpServletRequest request, int statusCode, Map<String, Object> inputInfo) {
+    private void pushFilterErrorAsync(HttpServletRequest request, int statusCode, Map<String, Object> inputInfo, List<String> executionLogs) {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
@@ -253,7 +259,8 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                         "doFilter",
                         "No stack trace available for filter-level status codes.",
                         severity,
-                        inputInfo
+                        inputInfo,
+                        executionLogs
                 );
 
                 HttpHeaders headers = new HttpHeaders();
@@ -271,13 +278,16 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         });
     }
 
-    private void pushErrorAsync(HttpServletRequest request, int statusCode, Throwable ex, String feature, String api, String function, Map<String, Object> inputInfo) {
+    private void pushErrorAsync(HttpServletRequest request, int statusCode, Throwable ex, String feature, String api, String function, Map<String, Object> inputInfo, List<String> executionLogs) {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
         dispatchAsync(() -> {
             try {
-                String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
+                String customSeverity = (String) request.getAttribute("logdispatch.severity");
+                String severity = (customSeverity != null && !customSeverity.isEmpty())
+                        ? customSeverity
+                        : ((statusCode >= 500) ? "CRITICAL" : "WARNING");
 
                 String stackTrace = formatStackTrace(ex);
                 
@@ -293,7 +303,8 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                         function,
                         stackTrace,
                         severity,
-                        inputInfo
+                        inputInfo,
+                        executionLogs
                 );
 
                 HttpHeaders headers = new HttpHeaders();
