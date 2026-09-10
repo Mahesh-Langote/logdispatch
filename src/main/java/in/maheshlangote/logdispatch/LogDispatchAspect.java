@@ -63,7 +63,6 @@ public class LogDispatchAspect {
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
                 path = request.getRequestURI();
-                request.setAttribute("logdispatch.handled", true);
             }
         } catch (Exception ignored) {}
 
