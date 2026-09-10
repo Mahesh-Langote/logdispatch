@@ -41,11 +41,11 @@ public class DemoExceptionController {
     }
 
     @GetMapping("/annotated")
-    @LogDispatch(api = "Annotated Demo Endpoint", function = "throwAnnotatedException")
+    @LogDispatch(api = "Annotated Demo Endpoint", function = "throwAnnotatedException", severity = in.maheshlangote.logdispatch.annotation.LogSeverity.CRITICAL)
     public String throwAnnotatedException() {
         log.info("Processing GET /api/demo/annotated");
         log.debug("Custom LogDispatch annotation demo endpoint invoked");
-        throw new UnsupportedOperationException("This endpoint demonstrates custom LogDispatch metadata.");
+        throw new UnsupportedOperationException("This endpoint demonstrates custom LogDispatch metadata with CRITICAL severity.");
     }
 
     @PostMapping("/body")

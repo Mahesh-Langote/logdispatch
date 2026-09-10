@@ -35,4 +35,11 @@ public @interface LogDispatch {
      * @return the custom function name
      */
     String function() default "";
+
+    /**
+     * Overrides the default severity (which is calculated from HTTP status code).
+     * e.g., LogSeverity.CRITICAL or LogSeverity.WARNING
+     * @return the custom severity level
+     */
+    LogSeverity severity() default LogSeverity.DEFAULT;
 }

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-09-10
+### Added
+- Added type-safe `LogSeverity` enum (`DEFAULT`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`, `SECURITY`, `FATAL`) for explicitly overriding severity levels per controller or method via `@LogDispatch(severity = LogSeverity.CRITICAL)`.
+- Updated `LogDispatchAspect` and `LogDispatchFilter` to capture and apply custom severity overrides from `@LogDispatch`.
+- Added standard practice guidelines for choosing severity levels in `LogSeverity` Javadoc and `README.md`.
+
 ## [1.1.0] - 2026-09-06
 ### Added
 - Formatted `executionLogs` as pure console-style log strings (`${timestamp} ${level} ${loggerName} : ${message}`), eliminating `threadName`, redundant JSON metadata, and null fields (Option B).

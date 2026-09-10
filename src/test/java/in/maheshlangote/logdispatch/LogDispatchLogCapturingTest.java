@@ -28,13 +28,15 @@ class LogDispatchLogCapturingTest extends LogDispatchFilterBaseTest {
     @BeforeEach
     void setUpAppender() {
         LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
+        Logger root = context.getLogger(Logger.ROOT_LOGGER_NAME);
+        root.detachAndStopAllAppenders();
+
         appender = new LogDispatchLogbackAppender();
         appender.setContext(context);
         appender.setMinLevel("DEBUG");
         appender.setMaxEntries(50);
         appender.start();
 
-        Logger root = context.getLogger(Logger.ROOT_LOGGER_NAME);
         root.setLevel(Level.DEBUG);
         root.addAppender(appender);
     }
@@ -44,6 +46,9 @@ class LogDispatchLogCapturingTest extends LogDispatchFilterBaseTest {
         if (appender != null) {
             appender.stop();
         }
+        LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
+        Logger root = context.getLogger(Logger.ROOT_LOGGER_NAME);
+        root.detachAndStopAllAppenders();
     }
 
     @Test

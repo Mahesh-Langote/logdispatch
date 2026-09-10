@@ -295,10 +295,11 @@ WARN [LogDispatch] Failed to push error: Connection refused: connect
 
 # Optional: @LogDispatch Annotation
 
-Override default metadata with human-readable labels.
+Override default metadata (`feature`, `api`, `function`, and `severity`) with custom values.
 
 ```java
 import in.maheshlangote.logdispatch.annotation.LogDispatch;
+import in.maheshlangote.logdispatch.annotation.LogSeverity;
 
 @RestController
 @LogDispatch(feature = "Payment Gateway")
@@ -307,7 +308,8 @@ public class PaymentController {
     @PostMapping("/pay")
     @LogDispatch(
         api = "Process Payment",
-        function = "handlePayment"
+        function = "handlePayment",
+        severity = LogSeverity.CRITICAL
     )
     public void handlePayment() {
         // ...
@@ -321,9 +323,23 @@ Generated payload:
 {
   "affectedFeature": "Payment Gateway",
   "affectedAPI": "Process Payment",
-  "affectedFunction": "handlePayment"
+  "affectedFunction": "handlePayment",
+  "severity": "CRITICAL"
 }
 ```
+
+### Available `LogSeverity` Levels & Standard Practice Guide
+
+| Severity Level | Standard Use Case & Meaning | Example Scenario |
+| :--- | :--- | :--- |
+| `LogSeverity.DEFAULT` | Automatically calculates severity based on HTTP status (5xx $\rightarrow$ `CRITICAL`, 4xx $\rightarrow$ `WARNING`, Auth $\rightarrow$ `SECURITY`). | General API endpoints without explicit override |
+| `LogSeverity.DEBUG` | Fine-grained diagnostic information for development or deep troubleshooting. | Detailed query parameters or inner loop diagnostics |
+| `LogSeverity.INFO` | Key operational milestones or normal system state updates. | User onboarding completed, audit trail checkpoint |
+| `LogSeverity.WARNING` | Non-fatal client errors, bad request inputs, or recoverable conditions. | Input validation failed, rate limit warning |
+| `LogSeverity.ERROR` | Managed application exception or business logic failure that interrupts a request. | Payment declined, order processing failed |
+| `LogSeverity.CRITICAL` | Severe operational failures requiring immediate engineering attention. | Third-party payment gateway offline, core DB timeout |
+| `LogSeverity.SECURITY` | Security breaches, unauthorized requests, or invalid access tokens. | JWT signature invalid (401), missing role permissions (403) |
+| `LogSeverity.FATAL` | Unrecoverable component crash or total service outage. | Database pool exhausted, system out of memory |
 
 ---
 

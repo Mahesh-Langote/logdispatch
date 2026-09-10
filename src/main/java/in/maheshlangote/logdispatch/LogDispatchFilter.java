@@ -256,7 +256,10 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         
         dispatchAsync(() -> {
             try {
-                String severity = (statusCode >= 500) ? "CRITICAL" : "WARNING";
+                String customSeverity = (String) request.getAttribute("logdispatch.severity");
+                String severity = (customSeverity != null && !customSeverity.isEmpty())
+                        ? customSeverity
+                        : ((statusCode >= 500) ? "CRITICAL" : "WARNING");
 
                 StringBuilder stackTrace = new StringBuilder();
                 for (StackTraceElement element : ex.getStackTrace()) {
