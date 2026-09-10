@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.aspectj.lang.reflect.MethodSignature;
 import in.maheshlangote.logdispatch.annotation.LogDispatch;
+import in.maheshlangote.logdispatch.annotation.LogSeverity;
 import java.lang.reflect.Method;
 
 /**
@@ -69,6 +70,7 @@ public class LogDispatchAspect {
         String feature = joinPoint.getSignature().getDeclaringType().getSimpleName();
         String function = joinPoint.getSignature().getName();
         String api = path;
+        String severity = null;
 
         // Try to read the custom annotation from the Method or Class
         try {
@@ -83,6 +85,7 @@ public class LogDispatchAspect {
                 if (!annotation.feature().isEmpty()) feature = annotation.feature();
                 if (!annotation.api().isEmpty()) api = annotation.api();
                 if (!annotation.function().isEmpty()) function = annotation.function();
+                if (annotation.severity() != LogSeverity.DEFAULT) severity = annotation.severity().name();
             }
         } catch (Exception ignored) {}
 
@@ -95,6 +98,9 @@ public class LogDispatchAspect {
                 request.setAttribute("logdispatch.feature", feature);
                 request.setAttribute("logdispatch.api", api);
                 request.setAttribute("logdispatch.function", function);
+                if (severity != null) {
+                    request.setAttribute("logdispatch.severity", severity);
+                }
             }
         } catch (Exception ignored) {}
     }
