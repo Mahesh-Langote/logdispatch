@@ -87,14 +87,6 @@
                 </configuration>
             </plugin>
             
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>release</id>
-            <build>
-                <plugins>
                     <!-- Source Plugin (Required by Maven Central) -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -149,12 +141,11 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
+                            <tokenAuth>true</tokenAuth>
                             <autoPublish>true</autoPublish>
                         </configuration>
                     </plugin>
                 </plugins>
             </build>
-        </profile>
-    </profiles>
 
 </project>
