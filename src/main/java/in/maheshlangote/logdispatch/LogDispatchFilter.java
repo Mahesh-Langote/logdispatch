@@ -17,6 +17,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import java.io.IOException;
@@ -51,6 +52,8 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     private final int timeoutMs;
     private final Set<String> maskedHeaders;
     private final List<String> excludePaths;
+    private final List<String> excludeMethods;
+    private final boolean ignoreOptionsRequests;
     private final Executor dispatchExecutor;
     private final int maxStackFrames;
     private final DispatchMode dispatchMode;
@@ -74,14 +77,14 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     public LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
             List<String> excludePaths, int timeoutMs, int maxStackFrames) {
         this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, new RestTemplate(), null, timeoutMs,
-                maxStackFrames, DispatchMode.ALL, 1000, true);
+                maxStackFrames, DispatchMode.ERRORS_AND_SLOW, 3000, true);
     }
 
     public LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
             List<String> excludePaths, RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs,
             int maxStackFrames) {
         this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, restTemplate, dispatchExecutor, timeoutMs,
-                maxStackFrames, DispatchMode.ALL, 1000, true);
+                maxStackFrames, DispatchMode.ERRORS_AND_SLOW, 3000, true);
     }
 
     public LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
@@ -94,15 +97,24 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     public LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
             List<String> excludePaths, RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs,
             int maxStackFrames, DispatchMode dispatchMode, int slowThresholdMs, boolean includeRequestIp) {
+        this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, List.of("OPTIONS"), true, restTemplate,
+                dispatchExecutor, timeoutMs, maxStackFrames, dispatchMode, slowThresholdMs, includeRequestIp);
+    }
+
+    public LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
+            List<String> excludePaths, List<String> excludeMethods, boolean ignoreOptionsRequests,
+            RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs, int maxStackFrames,
+            DispatchMode dispatchMode, int slowThresholdMs, boolean includeRequestIp) {
         this.enabled = enabled;
         this.serverUrl = serverUrl;
         this.apiKey = apiKey;
         this.timeoutMs = (timeoutMs > 0) ? timeoutMs : 3000;
         this.maxStackFrames = (maxStackFrames > 0) ? maxStackFrames : DEFAULT_MAX_STACK_FRAMES;
         this.dispatchExecutor = dispatchExecutor;
-        this.dispatchMode = (dispatchMode != null) ? dispatchMode : DispatchMode.ALL;
-        this.slowThresholdMs = (slowThresholdMs > 0) ? slowThresholdMs : 1000;
+        this.dispatchMode = (dispatchMode != null) ? dispatchMode : DispatchMode.ERRORS_AND_SLOW;
+        this.slowThresholdMs = (slowThresholdMs > 0) ? slowThresholdMs : 3000;
         this.includeRequestIp = includeRequestIp;
+        this.ignoreOptionsRequests = ignoreOptionsRequests;
         this.restTemplate = (restTemplate != null) ? restTemplate : new RestTemplate();
 
         if (this.restTemplate.getRequestFactory() instanceof SimpleClientHttpRequestFactory factory) {
@@ -123,18 +135,36 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 .filter(p -> p != null && !p.trim().isEmpty())
                 .map(String::trim)
                 .collect(Collectors.toList());
+        this.excludeMethods = excludeMethods == null ? List.of() : excludeMethods.stream()
+                .filter(m -> m != null && !m.trim().isEmpty())
+                .map(m -> m.trim().toUpperCase(Locale.ROOT))
+                .collect(Collectors.toList());
     }
 
     LogDispatchFilter(String serverUrl, String apiKey, List<String> maskedHeaders, List<String> excludePaths,
                       RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs) {
         this(true, serverUrl, apiKey, maskedHeaders, excludePaths, restTemplate, dispatchExecutor, timeoutMs,
-                DEFAULT_MAX_STACK_FRAMES, DispatchMode.ALL, 1000, true);
+                DEFAULT_MAX_STACK_FRAMES, DispatchMode.ERRORS_AND_SLOW, 3000, true);
     }
 
     LogDispatchFilter(boolean enabled, String serverUrl, String apiKey, List<String> maskedHeaders,
             List<String> excludePaths, RestTemplate restTemplate, Executor dispatchExecutor, int timeoutMs) {
         this(enabled, serverUrl, apiKey, maskedHeaders, excludePaths, restTemplate, dispatchExecutor, timeoutMs,
-                DEFAULT_MAX_STACK_FRAMES, DispatchMode.ALL, 1000, true);
+                DEFAULT_MAX_STACK_FRAMES, DispatchMode.ERRORS_AND_SLOW, 3000, true);
+    }
+
+    private boolean isMethodExcluded(String method) {
+        if (method == null) {
+            return false;
+        }
+        String upperMethod = method.trim().toUpperCase(Locale.ROOT);
+        if (ignoreOptionsRequests && "OPTIONS".equals(upperMethod)) {
+            return true;
+        }
+        if (excludeMethods.isEmpty()) {
+            return false;
+        }
+        return excludeMethods.contains(upperMethod);
     }
 
     private boolean isPathExcluded(String requestPath) {
@@ -176,6 +206,11 @@ public class LogDispatchFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         if (!enabled) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (isMethodExcluded(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -268,13 +303,11 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                                     executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs);
                         } else {
                             // Successful execution telemetry (2xx OK)
-                            String feature = (String) requestToUse.getAttribute("logdispatch.feature");
+                            String feature = resolveFeature(requestToUse, "Controller");
                             String api = (String) requestToUse.getAttribute("logdispatch.api");
-                            String function = (String) requestToUse.getAttribute("logdispatch.function");
+                            String function = resolveFunction(requestToUse, "handleRequest");
 
-                            if (feature == null) feature = "Controller";
                             if (api == null) api = path;
-                            if (function == null) function = "handleRequest";
 
                             pushSuccessAsync(path, method, traceId, spanId, parentSpanId, requestIp, isDeprecated, status,
                                     feature, api, function, executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs);
@@ -288,6 +321,30 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 MDC.remove("spanId");
             }
         }
+    }
+
+    private String resolveFeature(HttpServletRequest request, String defaultFallback) {
+        String feature = (String) request.getAttribute("logdispatch.feature");
+        if (feature != null && !feature.isBlank()) {
+            return feature;
+        }
+        Object handler = request.getAttribute("org.springframework.web.servlet.HandlerMapping.bestMatchingHandler");
+        if (handler instanceof HandlerMethod handlerMethod) {
+            return handlerMethod.getBeanType().getSimpleName();
+        }
+        return defaultFallback;
+    }
+
+    private String resolveFunction(HttpServletRequest request, String defaultFallback) {
+        String function = (String) request.getAttribute("logdispatch.function");
+        if (function != null && !function.isBlank()) {
+            return function;
+        }
+        Object handler = request.getAttribute("org.springframework.web.servlet.HandlerMapping.bestMatchingHandler");
+        if (handler instanceof HandlerMethod handlerMethod) {
+            return handlerMethod.getMethod().getName();
+        }
+        return defaultFallback;
     }
 
     private boolean shouldDispatchPayload(boolean isError, boolean isSlow) {
@@ -359,12 +416,30 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         return health;
     }
 
+    private String formatBytes(long bytes) {
+        if (bytes <= 0) return "0 B";
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0);
+        return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0));
+    }
+
+    private String formatDuration(long ms) {
+        if (ms <= 0) return "0.00s";
+        return String.format(Locale.ROOT, "%.2fs", ms / 1000.0);
+    }
+
     private void pushSuccessAsync(String path, String method, String traceId, String spanId, String parentSpanId,
                                   String requestIp, boolean isDeprecated, int statusCode, String feature, String api, String function,
                                   long executionTimeMs, long responseSizeBytes, List<String> tags,
                                   Map<String, Object> inputInfo, List<String> executionLogs) {
         dispatchAsync(() -> {
             try {
+                String sizeFormatted = formatBytes(responseSizeBytes);
+                String timeFormatted = formatDuration(executionTimeMs);
+                String successMessage = ("Controller".equals(feature) || "handleRequest".equals(function))
+                        ? "Successfully processed " + method + " " + path + " in " + timeFormatted + " (" + sizeFormatted + ")."
+                        : "Successfully executed " + method + " " + feature + "." + function + " in " + timeFormatted + " (" + sizeFormatted + ").";
+
                 LogDispatchPayload payload = new LogDispatchPayload(
                         Instant.now().toString(),
                         traceId,
@@ -379,7 +454,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                         tags,
                         statusCode,
                         "SUCCESS",
-                        "Request processed successfully.",
+                        successMessage,
                         path,
                         feature,
                         api,

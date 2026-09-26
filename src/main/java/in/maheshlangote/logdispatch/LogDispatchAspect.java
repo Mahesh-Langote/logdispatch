@@ -39,7 +39,7 @@ public class LogDispatchAspect {
      * @param ex the exception thrown
      */
     @AfterThrowing(
-            pointcut = "within(@org.springframework.web.bind.annotation.RestController *) || @annotation(in.maheshlangote.logdispatch.annotation.LogDispatch)",
+            pointcut = "within(@org.springframework.web.bind.annotation.RestController *) || within(@org.springframework.stereotype.Service *) || within(@org.springframework.stereotype.Repository *) || @annotation(in.maheshlangote.logdispatch.annotation.LogDispatch)",
             throwing = "ex"
     )
     public void handleControllerException(JoinPoint joinPoint, Throwable ex) {

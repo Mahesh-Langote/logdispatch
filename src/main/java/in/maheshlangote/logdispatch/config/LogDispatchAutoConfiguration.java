@@ -43,6 +43,8 @@ public class LogDispatchAutoConfiguration {
                 properties.getApiKey(),
                 properties.getMaskedHeaders(),
                 properties.getExcludePaths(),
+                properties.getExcludeMethods(),
+                properties.isIgnoreOptionsRequests(),
                 null,
                 null,
                 properties.getTimeoutMs(),

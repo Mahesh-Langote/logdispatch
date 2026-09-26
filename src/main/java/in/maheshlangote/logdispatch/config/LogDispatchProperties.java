@@ -17,10 +17,12 @@ public class LogDispatchProperties {
     private String apiKey = "default-key";
     private List<String> maskedHeaders = List.of();
     private List<String> excludePaths = List.of();
+    private List<String> excludeMethods = List.of("OPTIONS");
+    private boolean ignoreOptionsRequests = true;
     private int timeoutMs = 3000;
     private int maxStackFrames = 100;
-    private DispatchMode dispatchMode = DispatchMode.ALL; // Default: ALL (Full APM mode)
-    private int slowThresholdMs = 1000;
+    private DispatchMode dispatchMode = DispatchMode.ERRORS_AND_SLOW; // Default: ERRORS_AND_SLOW (Optimized APM mode)
+    private int slowThresholdMs = 3000; // Default: 3000 ms (3 seconds)
     private boolean includeRequestIp = true;
 
     public Health getHealth() {
@@ -145,6 +147,22 @@ public class LogDispatchProperties {
         this.excludePaths = excludePaths;
     }
 
+    public List<String> getExcludeMethods() {
+        return excludeMethods;
+    }
+
+    public void setExcludeMethods(List<String> excludeMethods) {
+        this.excludeMethods = excludeMethods != null ? excludeMethods : List.of();
+    }
+
+    public boolean isIgnoreOptionsRequests() {
+        return ignoreOptionsRequests;
+    }
+
+    public void setIgnoreOptionsRequests(boolean ignoreOptionsRequests) {
+        this.ignoreOptionsRequests = ignoreOptionsRequests;
+    }
+
     public int getTimeoutMs() {
         return timeoutMs;
     }
@@ -166,7 +184,7 @@ public class LogDispatchProperties {
     }
 
     public void setDispatchMode(DispatchMode dispatchMode) {
-        this.dispatchMode = dispatchMode != null ? dispatchMode : DispatchMode.ALL;
+        this.dispatchMode = dispatchMode != null ? dispatchMode : DispatchMode.ERRORS_AND_SLOW;
     }
 
     public int getSlowThresholdMs() {

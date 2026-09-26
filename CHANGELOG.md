@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-26
+### Added
+- **Automatic CORS `OPTIONS` Preflight Request Exclusion**: Bypasses HTTP `OPTIONS` requests by default via `logdispatch.ignore-options-requests=true` and `logdispatch.exclude-methods=OPTIONS`, preventing empty browser preflight checks from flooding the APM database (saves up to 50% storage overhead).
+- **HTTP Method Exclusion Support**: Introduced `logdispatch.exclude-methods` property allowing developers to exclude specific HTTP methods (e.g. `OPTIONS`, `HEAD`) from APM dispatching.
+
+### Changed
+- **Database-Optimized Default `DispatchMode`**: Changed default `dispatch-mode` from `ALL` to `ERRORS_AND_SLOW` (`errors-and-slow`). Captures 100% of errors (4xx/5xx) and slow requests exceeding `slow-threshold-ms` (default: 1000ms), while automatically dropping routine fast 200 OK responses to prevent database bloat. Developers can still set `dispatch-mode: all` if 100% request logging is desired.
+
 ## [1.2.2] - 2026-09-26
 ### Added
 - **Type-Safe `DispatchMode` & `LogLevel` Enums**: Introduced strongly typed `DispatchMode` (`ALL`, `ERRORS_ONLY`, `ERRORS_AND_SLOW`) and `LogLevel` (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`) enums with Spring Boot relaxed binding and Jackson serialization.

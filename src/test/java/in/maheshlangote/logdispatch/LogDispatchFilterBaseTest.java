@@ -37,7 +37,7 @@ public abstract class LogDispatchFilterBaseTest {
     }
 
     protected LogDispatchFilter filterWith(List<String> maskedHeaders, List<String> excludePaths, DispatchMode dispatchMode) {
-        return new LogDispatchFilter(true, SERVER_URL, API_KEY, maskedHeaders, excludePaths, restTemplate, Runnable::run, 3000, 100, dispatchMode, 1000, true);
+        return new LogDispatchFilter(true, SERVER_URL, API_KEY, maskedHeaders, excludePaths, restTemplate, Runnable::run, 3000, 100, dispatchMode, 3000, true);
     }
 
     protected LogDispatchFilter filterWith(List<String> maskedHeaders, List<String> excludePaths) {

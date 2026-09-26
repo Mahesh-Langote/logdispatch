@@ -64,4 +64,41 @@ class LogDispatchFilterPathExclusionTest extends LogDispatchFilterBaseTest {
         Map<String, Object> payload = dispatchedPayload();
         assertThat(payload).containsEntry("errorPath", "/health");
     }
+
+    @Test
+    @DisplayName("Should ignore OPTIONS CORS preflight requests by default")
+    void shouldIgnoreOptionsRequestsByDefault() throws Exception {
+        filter = filterWith(List.of("authorization"), List.of());
+        MockHttpServletRequest request = request("OPTIONS", "/api/users");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chainWithStatus(200));
+
+        verifyNoApmDispatch();
+    }
+
+    @Test
+    @DisplayName("Should allow capturing OPTIONS requests if ignoreOptionsRequests is false")
+    void shouldCaptureOptionsRequestWhenIgnoreOptionsIsFalse() throws Exception {
+        filter = new LogDispatchFilter(true, SERVER_URL, API_KEY, List.of(), List.of(), List.of(), false, restTemplate, Runnable::run, 3000, 100, in.maheshlangote.logdispatch.config.DispatchMode.ALL, 1000, true);
+        MockHttpServletRequest request = request("OPTIONS", "/api/users");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chainWithStatus(200));
+
+        Map<String, Object> payload = dispatchedPayload();
+        assertThat(payload).containsEntry("apiType", "OPTIONS");
+    }
+
+    @Test
+    @DisplayName("Should ignore custom excluded HTTP methods")
+    void shouldIgnoreCustomExcludedHttpMethods() throws Exception {
+        filter = new LogDispatchFilter(true, SERVER_URL, API_KEY, List.of(), List.of(), List.of("HEAD", "TRACE"), true, restTemplate, Runnable::run, 3000, 100, in.maheshlangote.logdispatch.config.DispatchMode.ALL, 1000, true);
+        MockHttpServletRequest request = request("HEAD", "/api/users");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chainWithStatus(500));
+
+        verifyNoApmDispatch();
+    }
 }

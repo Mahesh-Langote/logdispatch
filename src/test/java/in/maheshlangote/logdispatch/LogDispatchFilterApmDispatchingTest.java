@@ -101,4 +101,28 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
         assertThat(response.getStatus()).isEqualTo(503);
         verify(restTemplate).postForEntity(eq(SERVER_URL), any(), eq(String.class));
     }
+
+    @Test
+    @DisplayName("Should dynamically extract Controller and Method name from HandlerMethod for 2xx responses")
+    void shouldExtractControllerAndMethodFromHandlerMethod() throws Exception {
+        filter = filterWith(List.of(), List.of(), DispatchMode.ALL);
+        MockHttpServletRequest request = request("GET", "/api/users");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        org.springframework.web.method.HandlerMethod handlerMethod = new org.springframework.web.method.HandlerMethod(
+                new SampleController(),
+                SampleController.class.getMethod("getUsers")
+        );
+        request.setAttribute("org.springframework.web.servlet.HandlerMapping.bestMatchingHandler", handlerMethod);
+
+        filter.doFilter(request, response, chainWithStatus(200));
+
+        Map<String, Object> payload = dispatchedPayload();
+        assertThat(payload).containsEntry("affectedFeature", "SampleController");
+        assertThat(payload).containsEntry("affectedFunction", "getUsers");
+    }
+
+    static class SampleController {
+        public void getUsers() {}
+    }
 }

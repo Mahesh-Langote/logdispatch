@@ -47,8 +47,10 @@ logdispatch:
   enabled: true
   server-url: "https://your-apm-server.com/api/v1/ingest/logs"
   api-key: "your-secret-api-key"
-  dispatch-mode: "errors-only" # 'errors-only', 'all', or 'errors-and-slow'
-  slow-threshold-ms: 1000
+  dispatch-mode: "errors-and-slow" # 'errors-and-slow' (default), 'all', or 'errors-only'
+  ignore-options-requests: true # Automatically skip HTTP OPTIONS CORS preflights
+  exclude-methods: "OPTIONS,HEAD" # Exclude specific HTTP methods
+  slow-threshold-ms: 3000 # Threshold in ms for slow request classification (default: 3000 ms)
   include-request-ip: true # Set to false to mask requestIp as "MASKED"
   timeout-ms: 3000
   max-stack-frames: 100
@@ -67,8 +69,10 @@ logdispatch:
 logdispatch.enabled=true
 logdispatch.server-url=https://your-apm-server.com/api/v1/ingest/logs
 logdispatch.api-key=your-secret-api-key
-logdispatch.dispatch-mode=errors-only
-logdispatch.slow-threshold-ms=1000
+logdispatch.dispatch-mode=errors-and-slow
+logdispatch.ignore-options-requests=true
+logdispatch.exclude-methods=OPTIONS,HEAD
+logdispatch.slow-threshold-ms=3000
 logdispatch.include-request-ip=true
 logdispatch.timeout-ms=3000
 logdispatch.max-stack-frames=100
@@ -86,8 +90,10 @@ logdispatch.logs.exclude-loggers=com.zaxxer.hikari
 | `logdispatch.enabled` | ❌ No | `true` | Enables or disables the LogDispatch SDK. |
 | `logdispatch.server-url` | ✅ Yes, when enabled | `http://localhost:8081/...` | Full URL of the APM ingest endpoint. |
 | `logdispatch.api-key` | ✅ Yes, when enabled | `default-key` | API key used to authenticate with the APM server. |
-| `logdispatch.dispatch-mode` | ❌ No | `all` | Controls when payloads are dispatched (`DispatchMode.ALL`, `DispatchMode.ERRORS_ONLY`, `DispatchMode.ERRORS_AND_SLOW`). |
-| `logdispatch.slow-threshold-ms` | ❌ No | `1000` | Latency threshold in ms for tagging slow API requests (`SLOW_REQUEST`). |
+| `logdispatch.dispatch-mode` | ❌ No | `errors-and-slow` | Controls when payloads are dispatched (`DispatchMode.ERRORS_AND_SLOW`, `DispatchMode.ERRORS_ONLY`, `DispatchMode.ALL`). |
+| `logdispatch.ignore-options-requests` | ❌ No | `true` | Automatically bypasses HTTP `OPTIONS` CORS preflight requests. |
+| `logdispatch.exclude-methods` | ❌ No | `OPTIONS` | Comma-separated list of HTTP methods to exclude from APM dispatching. |
+| `logdispatch.slow-threshold-ms` | ❌ No | `3000` | Latency threshold in ms for tagging slow API requests (`SLOW_REQUEST`). |
 | `logdispatch.include-request-ip` | ❌ No | `true` | Captures caller IP in `requestIp`. Set to `false` to mask IP as `"MASKED"`. |
 | `logdispatch.timeout-ms` | ❌ No | `3000` | Connection and read timeout in milliseconds. |
 | `logdispatch.max-stack-frames` | ❌ No | `100` | Maximum number of stack trace frames included per error payload. |
