@@ -34,7 +34,7 @@ Add the dependency to your `pom.xml`:
 <dependency>
     <groupId>in.maheshlangote</groupId>
     <artifactId>logdispatch-spring-boot-starter</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
 </dependency>
 ```
 
@@ -109,7 +109,7 @@ Every event is pushed as a `POST` request to the configured `server-url`.
 | :--- | :--- |
 | `Content-Type` | `application/json` |
 | `X-API-KEY` | Value of `logdispatch.api-key` |
-| `X-LogDispatch-Version` | Dynamic SDK Version (e.g. `1.2.0`) |
+| `X-LogDispatch-Version` | Dynamic SDK Version (e.g. `1.2.1`) |
 | `X-LogDispatch-Language` | SDK Language (`java`) |
 
 ## Request Body Example
@@ -120,7 +120,7 @@ Every event is pushed as a `POST` request to the configured `server-url`.
   "traceId": "b3e39005-a5c8-4787-8f48-c3f8b5a70245",
   "spanId": "c4f5e6a7-1234-5678",
   "parentSpanId": null,
-  "sdkVersion": "1.2.0",
+  "sdkVersion": "1.2.1",
   "sdkLanguage": "java",
   "requestIp": "103.21.12.44",
 
@@ -176,7 +176,7 @@ Every event is pushed as a `POST` request to the configured `server-url`.
 | `traceId` | String | Unique transaction correlation ID |
 | `spanId` | String | Unique span ID for current execution step |
 | `parentSpanId` | String | Parent caller span ID (if nested) |
-| `sdkVersion` | String | SDK Version (e.g. `1.2.0`) |
+| `sdkVersion` | String | SDK Version (e.g. `1.2.1`) |
 | `sdkLanguage` | String | SDK Language (`java`) |
 | `requestIp` | String | Remote caller IP address (`X-Forwarded-For` or remote addr, or `"MASKED"`) |
 | `isError` | Boolean | `true` if HTTP status $\ge 400$, `false` if successful ($200\text{ OK}$) |

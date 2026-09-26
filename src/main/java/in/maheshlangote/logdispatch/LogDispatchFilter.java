@@ -239,6 +239,10 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                         Map<String, Object> inputInfo = extractInputInformation(requestToUse);
                         List<String> executionLogs = LogDispatchLogBuffer.getLogs();
 
+                        String path = requestToUse.getRequestURI();
+                        String method = requestToUse.getMethod();
+                        String customSeverity = (String) requestToUse.getAttribute("logdispatch.severity");
+
                         Throwable aspectEx = (Throwable) requestToUse.getAttribute("logdispatch.exception");
                         Throwable actualEx = unhandledException != null ? unhandledException : aspectEx;
 
@@ -253,14 +257,14 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                             String function = (String) requestToUse.getAttribute("logdispatch.function");
 
                             if (feature == null) feature = actualEx.getClass().getSimpleName();
-                            if (api == null) api = requestToUse.getRequestURI();
+                            if (api == null) api = path;
                             if (function == null) function = "UNKNOWN";
 
-                            pushTelemetryAsync(requestToUse, traceId, spanId, parentSpanId, requestIp, isError, isDeprecated, status,
+                            pushTelemetryAsync(path, method, customSeverity, traceId, spanId, parentSpanId, requestIp, isError, isDeprecated, status,
                                     actualEx.getClass().getSimpleName(), actualEx.getMessage(), formatStackTrace(actualEx),
                                     feature, api, function, executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs);
                         } else if (isError) {
-                            pushFilterErrorAsync(requestToUse, traceId, spanId, parentSpanId, requestIp, isDeprecated, status,
+                            pushFilterErrorAsync(path, method, traceId, spanId, parentSpanId, requestIp, isDeprecated, status,
                                     executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs);
                         } else {
                             // Successful execution telemetry (2xx OK)
@@ -269,10 +273,10 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                             String function = (String) requestToUse.getAttribute("logdispatch.function");
 
                             if (feature == null) feature = "Controller";
-                            if (api == null) api = requestToUse.getRequestURI();
+                            if (api == null) api = path;
                             if (function == null) function = "handleRequest";
 
-                            pushSuccessAsync(requestToUse, traceId, spanId, parentSpanId, requestIp, isDeprecated, status,
+                            pushSuccessAsync(path, method, traceId, spanId, parentSpanId, requestIp, isDeprecated, status,
                                     feature, api, function, executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs);
                         }
                     }
@@ -355,13 +359,10 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         return health;
     }
 
-    private void pushSuccessAsync(HttpServletRequest request, String traceId, String spanId, String parentSpanId,
+    private void pushSuccessAsync(String path, String method, String traceId, String spanId, String parentSpanId,
                                   String requestIp, boolean isDeprecated, int statusCode, String feature, String api, String function,
                                   long executionTimeMs, long responseSizeBytes, List<String> tags,
                                   Map<String, Object> inputInfo, List<String> executionLogs) {
-        String path = request.getRequestURI();
-        String method = request.getMethod();
-
         dispatchAsync(() -> {
             try {
                 LogDispatchPayload payload = new LogDispatchPayload(
@@ -400,12 +401,9 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         });
     }
 
-    private void pushFilterErrorAsync(HttpServletRequest request, String traceId, String spanId, String parentSpanId,
+    private void pushFilterErrorAsync(String path, String method, String traceId, String spanId, String parentSpanId,
                                        String requestIp, boolean isDeprecated, int statusCode, long executionTimeMs,
                                        long responseSizeBytes, List<String> tags, Map<String, Object> inputInfo, List<String> executionLogs) {
-        String path = request.getRequestURI();
-        String method = request.getMethod();
-
         dispatchAsync(() -> {
             try {
                 LogDispatchPayload payload = new LogDispatchPayload(
@@ -444,17 +442,13 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         });
     }
 
-    private void pushTelemetryAsync(HttpServletRequest request, String traceId, String spanId, String parentSpanId,
+    private void pushTelemetryAsync(String path, String method, String customSeverity, String traceId, String spanId, String parentSpanId,
                                     String requestIp, boolean isError, boolean isDeprecated, int statusCode, String errorType,
                                     String errorMessage, String stackTrace, String feature, String api, String function,
                                     long executionTimeMs, long responseSizeBytes, List<String> tags,
                                     Map<String, Object> inputInfo, List<String> executionLogs) {
-        String path = request.getRequestURI();
-        String method = request.getMethod();
-
         dispatchAsync(() -> {
             try {
-                String customSeverity = (String) request.getAttribute("logdispatch.severity");
                 String severity = (customSeverity != null && !customSeverity.isEmpty())
                         ? customSeverity
                         : (isError ? ((statusCode >= 500) ? "CRITICAL" : "WARNING") : "SUCCESS");
