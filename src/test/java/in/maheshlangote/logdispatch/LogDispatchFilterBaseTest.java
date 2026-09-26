@@ -1,5 +1,6 @@
 package in.maheshlangote.logdispatch;
 
+import in.maheshlangote.logdispatch.config.DispatchMode;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,9 +36,12 @@ public abstract class LogDispatchFilterBaseTest {
         filter = filterWith(List.of("authorization"), List.of());
     }
 
+    protected LogDispatchFilter filterWith(List<String> maskedHeaders, List<String> excludePaths, DispatchMode dispatchMode) {
+        return new LogDispatchFilter(true, SERVER_URL, API_KEY, maskedHeaders, excludePaths, restTemplate, Runnable::run, 3000, 100, dispatchMode, 1000, true);
+    }
+
     protected LogDispatchFilter filterWith(List<String> maskedHeaders, List<String> excludePaths) {
-        // Appended 3000 as the final argument to match your new constructor signature
-        return new LogDispatchFilter(SERVER_URL, API_KEY, maskedHeaders, excludePaths, restTemplate, Runnable::run, 3000);
+        return filterWith(maskedHeaders, excludePaths, DispatchMode.ALL);
     }
 
     protected static MockHttpServletRequest request(String method, String path) {
@@ -58,7 +62,7 @@ public abstract class LogDispatchFilterBaseTest {
         filter.doFilter(request, response, filterChain);
 
         ArgumentCaptor<HttpServletRequest> requestCaptor = ArgumentCaptor.forClass(HttpServletRequest.class);
-        verify(filterChain).doFilter(requestCaptor.capture(), eq(response));
+        verify(filterChain).doFilter(requestCaptor.capture(), any());
         return requestCaptor.getValue();
     }
 

@@ -19,12 +19,15 @@ public class LogDispatchProperties {
     private List<String> excludePaths = List.of();
     private int timeoutMs = 3000;
     private int maxStackFrames = 100;
+    private DispatchMode dispatchMode = DispatchMode.ALL; // Default: ALL (Full APM mode)
+    private int slowThresholdMs = 1000;
+    private boolean includeRequestIp = true;
 
-    public Health getHealth(){
+    public Health getHealth() {
         return health;
     }
 
-    public void setHealth(Health health){
+    public void setHealth(Health health) {
         this.health = health;
     }
 
@@ -46,7 +49,7 @@ public class LogDispatchProperties {
             return enabled;
         }
 
-        public void setEnabled(boolean enabled){
+        public void setEnabled(boolean enabled) {
             this.enabled = enabled;
         }
     }
@@ -57,7 +60,7 @@ public class LogDispatchProperties {
     public static class Logs {
         private boolean enabled = true;
         private int maxEntries = 50;
-        private String minLevel = "DEBUG";
+        private LogLevel minLevel = LogLevel.DEBUG;
         private List<String> excludeLoggers = List.of();
         private List<String> includeLoggers = List.of();
 
@@ -77,12 +80,12 @@ public class LogDispatchProperties {
             this.maxEntries = maxEntries;
         }
 
-        public String getMinLevel() {
+        public LogLevel getMinLevel() {
             return minLevel;
         }
 
-        public void setMinLevel(String minLevel) {
-            this.minLevel = minLevel;
+        public void setMinLevel(LogLevel minLevel) {
+            this.minLevel = minLevel != null ? minLevel : LogLevel.DEBUG;
         }
 
         public List<String> getExcludeLoggers() {
@@ -150,21 +153,35 @@ public class LogDispatchProperties {
         this.timeoutMs = timeoutMs;
     }
 
-    /**
-     * Returns the maximum number of stack frames included in an error payload.
-     *
-     * @return maximum stack frames
-     */
     public int getMaxStackFrames() {
         return maxStackFrames;
     }
 
-    /**
-     * Sets the maximum number of stack frames included in an error payload.
-     *
-     * @param maxStackFrames maximum stack frames
-     */
     public void setMaxStackFrames(int maxStackFrames) {
         this.maxStackFrames = maxStackFrames;
+    }
+
+    public DispatchMode getDispatchMode() {
+        return dispatchMode;
+    }
+
+    public void setDispatchMode(DispatchMode dispatchMode) {
+        this.dispatchMode = dispatchMode != null ? dispatchMode : DispatchMode.ALL;
+    }
+
+    public int getSlowThresholdMs() {
+        return slowThresholdMs;
+    }
+
+    public void setSlowThresholdMs(int slowThresholdMs) {
+        this.slowThresholdMs = slowThresholdMs;
+    }
+
+    public boolean isIncludeRequestIp() {
+        return includeRequestIp;
+    }
+
+    public void setIncludeRequestIp(boolean includeRequestIp) {
+        this.includeRequestIp = includeRequestIp;
     }
 }

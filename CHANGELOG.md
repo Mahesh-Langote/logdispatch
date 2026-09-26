@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-26
+### Added
+- **Distributed Request & Span Correlation**: Added `traceId`, `spanId`, and `parentSpanId` correlation fields. Injects `traceId` and `spanId` into SLF4J MDC (`[traceId=...]`) and returns `X-Trace-Id` HTTP response header for frontend-to-backend correlation.
+- **Client Request IP Tracking (`requestIp`)**: Added `requestIp` to payloads, extracted from `X-Forwarded-For` or `request.getRemoteAddr()`. Configurable via `logdispatch.include-request-ip` (default: `true`, set to `false` to mask `requestIp` as `"MASKED"`).
+- **Selective Ignore Annotation Control**: Added `enabled` parameter to `@LogDispatch(enabled = false)` allowing developers to completely ignore and skip log dispatching for specific controllers or methods.
+- **Latency & Performance Profiling**: Added `executionTimeMs` measuring high-precision response time for HTTP requests and non-HTTP background executions.
+- **Zero-RAM Response Byte Counter**: Created `ByteCountingResponseWrapper` to track output streaming payload size (`responseSizeBytes`) with 0 extra MB RAM overhead.
+- **Streamlined Status & Severity**: Added explicit 1-bit `isError` boolean flag (`true`/`false`) and `LogSeverity.SUCCESS` for 200 OK executions.
+- **Java `@Deprecated` Auto-Detection**: Added `isDeprecated` boolean flag using Reflection to detect Java `@Deprecated` annotations on controllers and methods.
+- **Multi-Tag System (`tags`)**: Supports auto-assigned system tags (`DEPRECATED_API`, `SLOW_REQUEST`, `HIGH_PAYLOAD_SIZE`, `SERVER_ERROR`, `CLIENT_ERROR`), custom annotation tags via `@LogDispatch(tags = {"..."})`, and dynamic runtime tags via `LogDispatchContext.addTag(...)`.
+- **Type-Safe `DispatchMode` & `LogLevel` Enums**: Replaced raw configuration strings with type-safe `DispatchMode` (`ALL`, `ERRORS_ONLY`, `ERRORS_AND_SLOW`) and `LogLevel` (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`) enums with Jackson serialization and Spring relaxed binding support.
+- **Configurable Dispatch Modes**: Added `logdispatch.dispatch-mode` (default: `DispatchMode.ALL` for 100% APM capture) and `logdispatch.slow-threshold-ms` (default: `1000`).
+- **Dynamic SDK Version & Language Telemetry**: Added `sdkVersion` (dynamically sourced from JAR Manifest with fallback to `0.0.0`) and `sdkLanguage` (`"java"`), shipped in payload and `X-LogDispatch-Version` / `X-LogDispatch-Language` HTTP headers.
+- **Runtime System Health Snapshot**: Included `systemHealth` map capturing CPU usage % (`cpuUsagePercent`) and Memory heap usage % (`memoryUsagePercent`).
+- **100% Multi-Threaded & Async Log Capture**: Upgraded `LogDispatchLogBuffer` to use `InheritableThreadLocal` + `traceId`-bound registry map (`TRACE_LOG_BUFFERS`), capturing logs from `@Async` methods, `CompletableFuture`, and worker thread pools without dropping console logs.
+
 ## [1.1.1] - 2026-09-10
 ### Added
 - Added type-safe `LogSeverity` enum (`DEFAULT`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`, `SECURITY`, `FATAL`) for explicitly overriding severity levels per controller or method via `@LogDispatch(severity = LogSeverity.CRITICAL)`.

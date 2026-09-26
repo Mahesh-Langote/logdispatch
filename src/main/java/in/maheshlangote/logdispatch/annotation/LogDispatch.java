@@ -6,15 +6,19 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation used to customize the metadata dispatched to the APM Server
- * when an exception occurs in a Spring Boot RestController.
- * 
- * If omitted, default values (class name, method name, HTTP path) are used.
+ * Annotation used to customize or ignore metadata dispatched to the APM Server.
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface LogDispatch {
-    
+
+    /**
+     * Set to false to completely ignore and skip log dispatching for this controller or method.
+     * e.g., @LogDispatch(enabled = false)
+     * @return true if enabled, false to ignore completely
+     */
+    boolean enabled() default true;
+
     /**
      * Overrides the default affectedFeature (which is the Class name).
      * e.g., "PaymentProcessing"
@@ -37,9 +41,16 @@ public @interface LogDispatch {
     String function() default "";
 
     /**
-     * Overrides the default severity (which is calculated from HTTP status code).
+     * Overrides the default severity.
      * e.g., LogSeverity.CRITICAL or LogSeverity.WARNING
      * @return the custom severity level
      */
     LogSeverity severity() default LogSeverity.DEFAULT;
+
+    /**
+     * Custom tags attached to the dispatched telemetry payload.
+     * e.g., {"CRITICAL_PAYMENT", "VIP_FLOW"}
+     * @return list of custom developer tags
+     */
+    String[] tags() default {};
 }

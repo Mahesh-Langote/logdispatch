@@ -1,11 +1,13 @@
 package in.maheshlangote.logdispatch;
 
+import in.maheshlangote.logdispatch.config.DispatchMode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.client.ResourceAccessException;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,8 +64,9 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
     }
 
     @Test
-    @DisplayName("Should not dispatch 2xx successful responses")
-    void shouldNotDispatchToApmFor2xxResponse() throws Exception {
+    @DisplayName("Should not dispatch 2xx successful responses in ERRORS_ONLY mode")
+    void shouldNotDispatchToApmFor2xxResponseInErrorsOnlyMode() throws Exception {
+        filter = filterWith(List.of(), List.of(), DispatchMode.ERRORS_ONLY);
         MockHttpServletRequest request = request("GET", "/api/users");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -73,8 +76,9 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
     }
 
     @Test
-    @DisplayName("Should not dispatch 3xx redirect responses")
-    void shouldNotDispatchToApmFor3xxResponse() throws Exception {
+    @DisplayName("Should not dispatch 3xx redirect responses in ERRORS_ONLY mode")
+    void shouldNotDispatchToApmFor3xxResponseInErrorsOnlyMode() throws Exception {
+        filter = filterWith(List.of(), List.of(), DispatchMode.ERRORS_ONLY);
         MockHttpServletRequest request = request("GET", "/api/users");
         MockHttpServletResponse response = new MockHttpServletResponse();
 

@@ -5,17 +5,19 @@ import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.ThrowableProxyUtil;
 import ch.qos.logback.core.AppenderBase;
 
+import in.maheshlangote.logdispatch.config.LogLevel;
+
 import java.time.Instant;
 import java.util.List;
 
 /**
  * Logback appender that intercepts SLF4J log events and appends them
- * to the active request's ThreadLocal LogDispatchLogBuffer.
+ * to the active request's execution buffer.
  */
 public class LogDispatchLogbackAppender extends AppenderBase<ILoggingEvent> {
 
     private int maxEntries = 50;
-    private String minLevel = "DEBUG";
+    private LogLevel minLevel = LogLevel.TRACE;
     private List<String> excludeLoggers = List.of();
     private List<String> includeLoggers = List.of();
 
@@ -27,8 +29,16 @@ public class LogDispatchLogbackAppender extends AppenderBase<ILoggingEvent> {
         this.maxEntries = maxEntries;
     }
 
+    public LogLevel getMinLevel() {
+        return minLevel;
+    }
+
+    public void setMinLevel(LogLevel minLevel) {
+        this.minLevel = minLevel != null ? minLevel : LogLevel.TRACE;
+    }
+
     public void setMinLevel(String minLevel) {
-        this.minLevel = minLevel;
+        this.minLevel = LogLevel.fromValue(minLevel);
     }
 
     public void setExcludeLoggers(List<String> excludeLoggers) {
@@ -95,6 +105,6 @@ public class LogDispatchLogbackAppender extends AppenderBase<ILoggingEvent> {
             }
         }
 
-        LogDispatchLogBuffer.append(formatted.toString(), minLevel, level);
+        LogDispatchLogBuffer.append(formatted.toString());
     }
 }

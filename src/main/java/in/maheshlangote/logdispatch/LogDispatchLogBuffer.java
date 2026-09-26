@@ -1,14 +1,17 @@
 package in.maheshlangote.logdispatch;
 
+import in.maheshlangote.logdispatch.config.LogLevel;
+import org.slf4j.MDC;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages a thread-local log buffer for capturing logs generated during an HTTP request.
- * Automatically caps total accumulated execution log size to 128 KB to prevent payload bloat
- * and database truncation.
+ * Manages thread-inheritable and traceId-correlated log buffers for capturing execution logs.
+ * Captures 100% of console logs generated during execution up to 128 KB.
  */
 public class LogDispatchLogBuffer {
 
@@ -18,12 +21,17 @@ public class LogDispatchLogBuffer {
     private static final String TRUNCATION_NOTICE =
             "[LogDispatch] Execution log limit reached (128 KB). Subsequent logs truncated.";
 
-    private static final ThreadLocal<BufferState> THREAD_LOCAL_BUFFER = new ThreadLocal<>();
+    // InheritableThreadLocal allows child threads spawned during a request to inherit the parent's log buffer
+    private static final ThreadLocal<BufferState> THREAD_LOCAL_BUFFER = new InheritableThreadLocal<>();
+
+    // Map keyed by traceId to support async worker threads referencing the request's traceId
+    private static final Map<String, BufferState> TRACE_LOG_BUFFERS = new ConcurrentHashMap<>();
 
     private static class BufferState {
         private final List<String> logs = new ArrayList<>();
         private int currentBytes = 0;
         private boolean limitReached = false;
+        private final long createdAt = System.currentTimeMillis();
     }
 
     private LogDispatchLogBuffer() {
@@ -34,43 +42,72 @@ public class LogDispatchLogBuffer {
      * Initializes a fresh log buffer for the current thread.
      */
     public static void init() {
-        THREAD_LOCAL_BUFFER.set(new BufferState());
+        init(null);
     }
 
     /**
-     * Appends a formatted log string to the current thread's buffer if active and within 128 KB limit.
+     * Initializes a fresh log buffer for the current thread and binds it to a traceId.
      *
-     * @param formattedLog the console-style formatted log line
-     * @param minLevel minimum log level string (e.g. TRACE, DEBUG, INFO, WARN, ERROR)
-     * @param eventLevel level of the current event
+     * @param traceId the transaction correlation ID
      */
+    public static void init(String traceId) {
+        BufferState state = new BufferState();
+        THREAD_LOCAL_BUFFER.set(state);
+        if (traceId != null && !traceId.isBlank()) {
+            TRACE_LOG_BUFFERS.put(traceId, state);
+        }
+    }
+
+    /**
+     * Appends a formatted log string to the current execution buffer.
+     * Captures 100% of logs without dropping based on log levels.
+     *
+     * @param formattedLog the formatted log line
+     */
+    public static void append(String formattedLog) {
+        if (formattedLog == null) {
+            return;
+        }
+
+        BufferState state = getActiveBufferState();
+        if (state == null) {
+            return;
+        }
+
+        synchronized (state) {
+            if (state.limitReached) {
+                return;
+            }
+
+            int logLength = formattedLog.length();
+            if (state.currentBytes + logLength <= MAX_BUFFER_BYTES) {
+                state.logs.add(formattedLog);
+                state.currentBytes += logLength;
+            } else {
+                state.limitReached = true;
+                state.logs.add(TRUNCATION_NOTICE);
+            }
+        }
+    }
+
+    /**
+     * Backward-compatible append method with level arguments (level filtering bypassed for 100% capture).
+     */
+    public static void append(String formattedLog, LogLevel minLevel, LogLevel eventLevel) {
+        append(formattedLog);
+    }
+
     public static void append(String formattedLog, String minLevel, String eventLevel) {
-        BufferState state = THREAD_LOCAL_BUFFER.get();
-        if (state == null || formattedLog == null) {
-            return;
-        }
-
-        if (!isLevelAllowed(eventLevel, minLevel)) {
-            return;
-        }
-
-        if (state.limitReached) {
-            return;
-        }
-
-        int logLength = formattedLog.length();
-        if (state.currentBytes + logLength <= MAX_BUFFER_BYTES) {
-            state.logs.add(formattedLog);
-            state.currentBytes += logLength;
-        } else {
-            state.limitReached = true;
-            state.logs.add(TRUNCATION_NOTICE);
-        }
+        append(formattedLog);
     }
 
     /**
      * Backward-compatible append method for ExecutionLogEntry.
      */
+    public static void append(ExecutionLogEntry entry, int maxEntries, LogLevel minLevel) {
+        append(entry, maxEntries, minLevel != null ? minLevel.name() : "DEBUG");
+    }
+
     public static void append(ExecutionLogEntry entry, int maxEntries, String minLevel) {
         if (entry == null) return;
         StringBuilder sb = new StringBuilder();
@@ -81,77 +118,59 @@ public class LogDispatchLogBuffer {
         if (entry.throwable() != null) {
             sb.append("\n").append(entry.throwable());
         }
-        append(sb.toString(), minLevel, entry.level());
+        append(sb.toString());
     }
 
     /**
-     * Retrieves captured logs for the current thread.
+     * Retrieves captured logs for the current thread or active traceId.
      *
-     * @return unmodifiable list of captured logs, or empty list if none
+     * @return unmodifiable list of captured logs
      */
     public static List<String> getLogs() {
-        BufferState state = THREAD_LOCAL_BUFFER.get();
-        if (state == null || state.logs.isEmpty()) {
+        BufferState state = getActiveBufferState();
+        if (state == null) {
             return Collections.emptyList();
         }
-        return Collections.unmodifiableList(new ArrayList<>(state.logs));
+
+        synchronized (state) {
+            if (state.logs.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return Collections.unmodifiableList(new ArrayList<>(state.logs));
+        }
     }
 
     /**
-     * Clears the log buffer for the current thread to prevent memory leaks.
+     * Clears the log buffer for the current thread and traceId context.
      */
     public static void clear() {
+        String traceId = MDC.get("traceId");
+        if (traceId != null && !traceId.isBlank()) {
+            TRACE_LOG_BUFFERS.remove(traceId);
+        }
         THREAD_LOCAL_BUFFER.remove();
     }
 
     /**
-     * Checks if the thread-local buffer is currently initialized for this thread.
+     * Checks if a log buffer is initialized for the current thread context.
      *
-     * @return true if buffer is initialized
+     * @return true if initialized
      */
     public static boolean isInitialized() {
-        return THREAD_LOCAL_BUFFER.get() != null;
+        return getActiveBufferState() != null;
     }
 
-    private static boolean isLevelAllowed(String eventLevel, String configuredMinLevel) {
-        int eventScore = getLevelScore(eventLevel);
-        int minScore = getLevelScore(configuredMinLevel);
-        return eventScore >= minScore;
-    }
-
-    private static int getLevelScore(String level) {
-        if (level == null) return 0;
-        String trimmed = level.trim();
-        if (trimmed.contains(",")) {
-            String[] parts = trimmed.split(",");
-            int minScore = Integer.MAX_VALUE;
-            for (String part : parts) {
-                int score = getSingleLevelScore(part.trim());
-                if (score > 0 && score < minScore) {
-                    minScore = score;
-                }
-            }
-            return minScore == Integer.MAX_VALUE ? 0 : minScore;
+    private static BufferState getActiveBufferState() {
+        BufferState state = THREAD_LOCAL_BUFFER.get();
+        if (state != null) {
+            return state;
         }
-        return getSingleLevelScore(trimmed);
-    }
 
-    private static int getSingleLevelScore(String level) {
-        if (level == null) return 0;
-        switch (level.toUpperCase(Locale.ROOT)) {
-            case "TRACE":
-                return 1;
-            case "DEBUG":
-                return 2;
-            case "INFO":
-                return 3;
-            case "WARN":
-            case "WARNING":
-                return 4;
-            case "ERROR":
-                return 5;
-            default:
-                return 0;
+        String traceId = MDC.get("traceId");
+        if (traceId != null && !traceId.isBlank()) {
+            return TRACE_LOG_BUFFERS.get(traceId);
         }
+
+        return null;
     }
 }
