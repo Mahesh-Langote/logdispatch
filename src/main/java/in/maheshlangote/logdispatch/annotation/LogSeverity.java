@@ -46,6 +46,11 @@ public enum LogSeverity {
     SECURITY,
 
     /**
+     * Request rejections or errors occurring within Servlet filters, Spring Security, or routing.
+     */
+    HTTP_FILTER_ERROR,
+
+    /**
      * Catastrophic application failure causing total service outage or crash.
      */
     FATAL

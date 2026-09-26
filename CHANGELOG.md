@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - 2026-09-26
+## [1.3.2] - 2026-09-26
+### Added
+- **`HTTP_FILTER_ERROR` Log Severity**: Introduced `HTTP_FILTER_ERROR` enum value in `LogSeverity` to categorize filter-level request rejections and pre-controller execution errors, preventing non-security filter errors (e.g. 404, 400, 500) from polluting `SECURITY` dashboards.
+- **Dynamic Filter Error Metadata Extraction**: `LogDispatchFilter` now dynamically extracts Spring Security and Servlet request exceptions (`SPRING_SECURITY_LAST_EXCEPTION`, `jakarta.servlet.error.exception`, `javax.servlet.error.exception`) to capture real stack traces, exception class names, and detailed error messages.
+- **Categorized Filter Feature & Function**: Replaced hardcoded static strings (`"FilterSecurity/Routing"`, `"doFilter"`) with dynamic status-based feature categories (`FilterSecurity`, `FilterRouting`, `FilterValidation`, `FilterInfrastructure`) and actual HTTP endpoint targets (`method + " " + path`).
+
+## [1.3.1] - 2026-09-26
 ### Added
 - **Automatic CORS `OPTIONS` Preflight Request Exclusion**: Bypasses HTTP `OPTIONS` requests by default via `logdispatch.ignore-options-requests=true` and `logdispatch.exclude-methods=OPTIONS`, preventing empty browser preflight checks from flooding the APM database (saves up to 50% storage overhead).
 - **HTTP Method Exclusion Support**: Introduced `logdispatch.exclude-methods` property allowing developers to exclude specific HTTP methods (e.g. `OPTIONS`, `HEAD`) from APM dispatching.

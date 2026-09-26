@@ -187,10 +187,10 @@ Every event is pushed as a `POST` request to the configured `server-url`.
 | `requestIp` | String | Remote caller IP address (`X-Forwarded-For` or remote addr, or `"MASKED"`) |
 | `isError` | Boolean | `true` if HTTP status $\ge 400$, `false` if successful ($200\text{ OK}$) |
 | `isDeprecated` | Boolean | `true` if method/class is annotated with `@Deprecated` |
-| `severity` | String | `SUCCESS`, `WARNING`, `CRITICAL`, `SECURITY`, `ERROR`, `INFO` |
+| `severity` | String | `SUCCESS`, `WARNING`, `CRITICAL`, `SECURITY`, `HTTP_FILTER_ERROR`, `ERROR`, `INFO` |
 | `tags` | Array | System tags + custom annotation tags + dynamic runtime tags |
 | `statusCode` | Number | HTTP status code (e.g. 200, 400, 403, 500) |
-| `errorType` | String | Exception class name or `FilterError` / `SUCCESS` |
+| `errorType` | String | Exception class name, HTTP reason (e.g. `Unauthorized`, `NotFound`), or `SUCCESS` |
 | `errorMessage` | String | Exception message or status description |
 | `errorPath` | String | Request URI |
 | `affectedFeature` | String | Controller name or `@LogDispatch` annotation override |

@@ -1,5 +1,6 @@
 package in.maheshlangote.logdispatch;
 
+import in.maheshlangote.logdispatch.annotation.LogSeverity;
 import in.maheshlangote.logdispatch.config.DispatchMode;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -10,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.util.AntPathMatcher;
@@ -299,8 +301,9 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                                     actualEx.getClass().getSimpleName(), actualEx.getMessage(), formatStackTrace(actualEx),
                                     feature, api, function, executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs);
                         } else if (isError) {
-                            pushFilterErrorAsync(path, method, traceId, spanId, parentSpanId, requestIp, isDeprecated, status,
-                                    executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs);
+                            Throwable filterEx = extractFilterException(requestToUse);
+                            pushFilterErrorAsync(path, method, customSeverity, traceId, spanId, parentSpanId, requestIp, isDeprecated, status,
+                                    executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs, filterEx);
                         } else {
                             // Successful execution telemetry (2xx OK)
                             String feature = resolveFeature(requestToUse, "Controller");
@@ -476,11 +479,50 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         });
     }
 
-    private void pushFilterErrorAsync(String path, String method, String traceId, String spanId, String parentSpanId,
+    private Throwable extractFilterException(HttpServletRequest request) {
+        Object secEx = request.getAttribute("SPRING_SECURITY_LAST_EXCEPTION");
+        if (secEx instanceof Throwable t) return t;
+
+        Object jakartaEx = request.getAttribute("jakarta.servlet.error.exception");
+        if (jakartaEx instanceof Throwable t) return t;
+
+        Object javaxEx = request.getAttribute("javax.servlet.error.exception");
+        if (javaxEx instanceof Throwable t) return t;
+
+        return null;
+    }
+
+    private void pushFilterErrorAsync(String path, String method, String customSeverity, String traceId, String spanId, String parentSpanId,
                                        String requestIp, boolean isDeprecated, int statusCode, long executionTimeMs,
-                                       long responseSizeBytes, List<String> tags, Map<String, Object> inputInfo, List<String> executionLogs) {
+                                       long responseSizeBytes, List<String> tags, Map<String, Object> inputInfo,
+                                       List<String> executionLogs, Throwable filterEx) {
         dispatchAsync(() -> {
             try {
+                String severity = (customSeverity != null && !customSeverity.isEmpty())
+                        ? customSeverity
+                        : LogSeverity.HTTP_FILTER_ERROR.name();
+
+                String errorType;
+                String errorMessage;
+                String stackTrace;
+                String feature;
+                String function = method + " " + path;
+
+                if (filterEx != null) {
+                    errorType = filterEx.getClass().getSimpleName();
+                    errorMessage = (filterEx.getMessage() != null && !filterEx.getMessage().isBlank())
+                            ? filterEx.getMessage()
+                            : "Filter error: " + errorType;
+                    stackTrace = formatStackTrace(filterEx);
+                    feature = "Filter/" + errorType;
+                } else {
+                    String reasonPhrase = resolveHttpStatusReason(statusCode);
+                    errorType = resolveFilterErrorType(statusCode, reasonPhrase);
+                    errorMessage = "Request failed with HTTP status " + statusCode + " (" + reasonPhrase + ") at filter level.";
+                    stackTrace = "No Java exception captured in FilterChain (HTTP " + statusCode + ").";
+                    feature = resolveFilterFeature(statusCode);
+                }
+
                 LogDispatchPayload payload = new LogDispatchPayload(
                         Instant.now().toString(),
                         traceId,
@@ -491,17 +533,17 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                         requestIp,
                         true,
                         isDeprecated,
-                        "SECURITY",
+                        severity,
                         tags,
                         statusCode,
-                        "FilterError",
-                        "Request failed with status " + statusCode + " at filter level.",
+                        errorType,
+                        errorMessage,
                         path,
-                        "FilterSecurity/Routing",
+                        feature,
                         path,
                         method,
-                        "doFilter",
-                        "No stack trace available for filter-level status codes.",
+                        function,
+                        stackTrace,
                         executionTimeMs,
                         responseSizeBytes,
                         null,
@@ -515,6 +557,31 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                 log.warn("[LogDispatch] Failed to push filter error: {}", e.getMessage());
             }
         });
+    }
+
+    private String resolveHttpStatusReason(int statusCode) {
+        HttpStatus httpStatus = HttpStatus.resolve(statusCode);
+        return httpStatus != null ? httpStatus.getReasonPhrase() : "HTTP " + statusCode;
+    }
+
+    private String resolveFilterErrorType(int statusCode, String reasonPhrase) {
+        if (reasonPhrase != null && !reasonPhrase.isBlank()) {
+            return reasonPhrase.replaceAll("[^a-zA-Z0-9]", "");
+        }
+        return "FilterError_" + statusCode;
+    }
+
+    private String resolveFilterFeature(int statusCode) {
+        if (statusCode == 401 || statusCode == 403) {
+            return "FilterSecurity";
+        } else if (statusCode == 404) {
+            return "FilterRouting";
+        } else if (statusCode >= 400 && statusCode < 500) {
+            return "FilterValidation";
+        } else if (statusCode >= 500) {
+            return "FilterInfrastructure";
+        }
+        return "FilterSecurity/Routing";
     }
 
     private void pushTelemetryAsync(String path, String method, String customSeverity, String traceId, String spanId, String parentSpanId,

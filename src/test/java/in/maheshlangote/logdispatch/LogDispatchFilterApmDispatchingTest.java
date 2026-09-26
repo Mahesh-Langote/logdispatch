@@ -21,7 +21,7 @@ import static org.mockito.Mockito.verify;
 class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
 
     @Test
-    @DisplayName("Should dispatch 4xx responses as SECURITY")
+    @DisplayName("Should dispatch 4xx responses as HTTP_FILTER_ERROR")
     void shouldDispatchToApmFor4xxResponse() throws Exception {
         MockHttpServletRequest request = request("GET", "/api/users");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -30,13 +30,14 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
 
         Map<String, Object> payload = dispatchedPayload();
         assertThat(payload).containsEntry("statusCode", 404);
-        assertThat(payload).containsEntry("severity", "SECURITY");
+        assertThat(payload).containsEntry("severity", "HTTP_FILTER_ERROR");
         assertThat(payload).containsEntry("errorPath", "/api/users");
-        assertThat(payload).containsEntry("affectedFeature", "FilterSecurity/Routing");
+        assertThat(payload).containsEntry("affectedFeature", "FilterRouting");
+        assertThat(payload).containsEntry("errorType", "NotFound");
     }
 
     @Test
-    @DisplayName("Should dispatch 401 responses as SECURITY")
+    @DisplayName("Should dispatch 401 responses as HTTP_FILTER_ERROR")
     void shouldDispatchToApmForSecurityError() throws Exception {
         MockHttpServletRequest request = request("GET", "/secure");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -45,12 +46,13 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
 
         Map<String, Object> payload = dispatchedPayload();
         assertThat(payload).containsEntry("statusCode", 401);
-        assertThat(payload).containsEntry("severity", "SECURITY");
-        assertThat(payload).containsEntry("affectedFeature", "FilterSecurity/Routing");
+        assertThat(payload).containsEntry("severity", "HTTP_FILTER_ERROR");
+        assertThat(payload).containsEntry("affectedFeature", "FilterSecurity");
+        assertThat(payload).containsEntry("errorType", "Unauthorized");
     }
 
     @Test
-    @DisplayName("Should dispatch 5xx responses as SECURITY")
+    @DisplayName("Should dispatch 5xx responses as HTTP_FILTER_ERROR")
     void shouldDispatchToApmFor5xxResponse() throws Exception {
         MockHttpServletRequest request = request("GET", "/api/users");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -59,8 +61,26 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
 
         Map<String, Object> payload = dispatchedPayload();
         assertThat(payload).containsEntry("statusCode", 500);
-        assertThat(payload).containsEntry("severity", "SECURITY");
-        assertThat(payload).containsEntry("affectedFeature", "FilterSecurity/Routing");
+        assertThat(payload).containsEntry("severity", "HTTP_FILTER_ERROR");
+        assertThat(payload).containsEntry("affectedFeature", "FilterInfrastructure");
+        assertThat(payload).containsEntry("errorType", "InternalServerError");
+    }
+
+    @Test
+    @DisplayName("Should extract Spring Security exception from request attribute for filter errors")
+    void shouldExtractSpringSecurityExceptionFromRequestAttribute() throws Exception {
+        MockHttpServletRequest request = request("GET", "/api/protected");
+        request.setAttribute("SPRING_SECURITY_LAST_EXCEPTION", new IllegalAccessException("Bad token"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chainWithStatus(401));
+
+        Map<String, Object> payload = dispatchedPayload();
+        assertThat(payload).containsEntry("statusCode", 401);
+        assertThat(payload).containsEntry("severity", "HTTP_FILTER_ERROR");
+        assertThat(payload).containsEntry("errorType", "IllegalAccessException");
+        assertThat(payload).containsEntry("errorMessage", "Bad token");
+        assertThat(payload).containsEntry("affectedFeature", "Filter/IllegalAccessException");
     }
 
     @Test
