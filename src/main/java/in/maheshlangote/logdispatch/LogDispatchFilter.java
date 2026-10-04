@@ -288,18 +288,22 @@ public class LogDispatchFilter extends OncePerRequestFilter {
 
                         List<String> mergedTags = collectTags(requestToUse, isError, isSlow, isDeprecated, status, responseSizeBytes);
 
+                        boolean isController = isControllerRequest(requestToUse);
+
                         if (actualEx != null) {
                             String feature = (String) requestToUse.getAttribute("logdispatch.feature");
                             String api = (String) requestToUse.getAttribute("logdispatch.api");
                             String function = (String) requestToUse.getAttribute("logdispatch.function");
 
-                            if (feature == null) feature = actualEx.getClass().getSimpleName();
+                            if (feature == null) {
+                                feature = isController ? actualEx.getClass().getSimpleName() : "Filter/" + actualEx.getClass().getSimpleName();
+                            }
                             if (api == null) api = path;
-                            if (function == null) function = "UNKNOWN";
+                            if (function == null) function = isController ? "UNKNOWN" : method + " " + path;
 
                             pushTelemetryAsync(path, method, customSeverity, traceId, spanId, parentSpanId, requestIp, isError, isDeprecated, status,
                                     actualEx.getClass().getSimpleName(), actualEx.getMessage(), formatStackTrace(actualEx),
-                                    feature, api, function, executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs);
+                                    feature, api, function, executionTimeMs, responseSizeBytes, mergedTags, inputInfo, executionLogs, isController);
                         } else if (isError) {
                             Throwable filterEx = extractFilterException(requestToUse);
                             pushFilterErrorAsync(path, method, customSeverity, traceId, spanId, parentSpanId, requestIp, isDeprecated, status,
@@ -498,9 +502,7 @@ public class LogDispatchFilter extends OncePerRequestFilter {
                                        List<String> executionLogs, Throwable filterEx) {
         dispatchAsync(() -> {
             try {
-                String severity = (customSeverity != null && !customSeverity.isEmpty())
-                        ? customSeverity
-                        : LogSeverity.HTTP_FILTER_ERROR.name();
+                String severity = resolveSeverity(customSeverity, true, statusCode, false);
 
                 String errorType;
                 String errorMessage;
@@ -584,16 +586,38 @@ public class LogDispatchFilter extends OncePerRequestFilter {
         return "FilterSecurity/Routing";
     }
 
+    private boolean isControllerRequest(HttpServletRequest request) {
+        Object handler = request.getAttribute("org.springframework.web.servlet.HandlerMapping.bestMatchingHandler");
+        return handler instanceof HandlerMethod;
+    }
+
+    private String resolveSeverity(String customSeverity, boolean isError, int statusCode, boolean isControllerRequest) {
+        if (customSeverity != null && !customSeverity.isBlank() && !LogSeverity.DEFAULT.name().equalsIgnoreCase(customSeverity)) {
+            return customSeverity;
+        }
+        if (!isError) {
+            return LogSeverity.SUCCESS.name();
+        }
+        if (statusCode == 401 || statusCode == 403) {
+            return LogSeverity.SECURITY.name();
+        }
+        if (!isControllerRequest) {
+            return LogSeverity.HTTP_FILTER_ERROR.name();
+        }
+        if (statusCode >= 500) {
+            return LogSeverity.CRITICAL.name();
+        }
+        return LogSeverity.WARNING.name();
+    }
+
     private void pushTelemetryAsync(String path, String method, String customSeverity, String traceId, String spanId, String parentSpanId,
                                     String requestIp, boolean isError, boolean isDeprecated, int statusCode, String errorType,
                                     String errorMessage, String stackTrace, String feature, String api, String function,
                                     long executionTimeMs, long responseSizeBytes, List<String> tags,
-                                    Map<String, Object> inputInfo, List<String> executionLogs) {
+                                    Map<String, Object> inputInfo, List<String> executionLogs, boolean isControllerRequest) {
         dispatchAsync(() -> {
             try {
-                String severity = (customSeverity != null && !customSeverity.isEmpty())
-                        ? customSeverity
-                        : (isError ? ((statusCode >= 500) ? "CRITICAL" : "WARNING") : "SUCCESS");
+                String severity = resolveSeverity(customSeverity, isError, statusCode, isControllerRequest);
 
                 LogDispatchPayload payload = new LogDispatchPayload(
                         Instant.now().toString(),

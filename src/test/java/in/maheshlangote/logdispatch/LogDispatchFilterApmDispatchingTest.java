@@ -37,7 +37,7 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
     }
 
     @Test
-    @DisplayName("Should dispatch 401 responses as HTTP_FILTER_ERROR")
+    @DisplayName("Should dispatch 401 responses as SECURITY")
     void shouldDispatchToApmForSecurityError() throws Exception {
         MockHttpServletRequest request = request("GET", "/secure");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -46,7 +46,7 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
 
         Map<String, Object> payload = dispatchedPayload();
         assertThat(payload).containsEntry("statusCode", 401);
-        assertThat(payload).containsEntry("severity", "HTTP_FILTER_ERROR");
+        assertThat(payload).containsEntry("severity", "SECURITY");
         assertThat(payload).containsEntry("affectedFeature", "FilterSecurity");
         assertThat(payload).containsEntry("errorType", "Unauthorized");
     }
@@ -67,7 +67,7 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
     }
 
     @Test
-    @DisplayName("Should extract Spring Security exception from request attribute for filter errors")
+    @DisplayName("Should extract Spring Security exception from request attribute for filter errors as SECURITY")
     void shouldExtractSpringSecurityExceptionFromRequestAttribute() throws Exception {
         MockHttpServletRequest request = request("GET", "/api/protected");
         request.setAttribute("SPRING_SECURITY_LAST_EXCEPTION", new IllegalAccessException("Bad token"));
@@ -77,10 +77,86 @@ class LogDispatchFilterApmDispatchingTest extends LogDispatchFilterBaseTest {
 
         Map<String, Object> payload = dispatchedPayload();
         assertThat(payload).containsEntry("statusCode", 401);
-        assertThat(payload).containsEntry("severity", "HTTP_FILTER_ERROR");
+        assertThat(payload).containsEntry("severity", "SECURITY");
         assertThat(payload).containsEntry("errorType", "IllegalAccessException");
         assertThat(payload).containsEntry("errorMessage", "Bad token");
         assertThat(payload).containsEntry("affectedFeature", "Filter/IllegalAccessException");
+    }
+
+    @Test
+    @DisplayName("Should dispatch pre-controller / filter exceptions as HTTP_FILTER_ERROR when status is 4xx")
+    void shouldDispatchPreControllerExceptionAsHttpFilterError() throws Exception {
+        MockHttpServletRequest request = request("GET", "/sito/wp-includes/wlwmanifest.xml");
+        request.setAttribute("logdispatch.exception", new RuntimeException("Header REQUEST-APP is required"));
+        request.setAttribute("logdispatch.feature", "HeaderService");
+        request.setAttribute("logdispatch.function", "getRequestApp");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chainWithStatus(404));
+
+        Map<String, Object> payload = dispatchedPayload();
+        assertThat(payload).containsEntry("statusCode", 404);
+        assertThat(payload).containsEntry("severity", "HTTP_FILTER_ERROR");
+        assertThat(payload).containsEntry("affectedFeature", "HeaderService");
+        assertThat(payload).containsEntry("affectedFunction", "getRequestApp");
+        assertThat(payload).containsEntry("errorType", "RuntimeException");
+    }
+
+    @Test
+    @DisplayName("Should dispatch controller 4xx exceptions as WARNING")
+    void shouldDispatchController4xxAsWarning() throws Exception {
+        org.springframework.web.method.HandlerMethod handlerMethod = new org.springframework.web.method.HandlerMethod(
+                new SampleController(),
+                SampleController.class.getMethod("getUsers")
+        );
+
+        MockHttpServletRequest request = request("POST", "/api/users");
+        request.setAttribute("org.springframework.web.servlet.HandlerMapping.bestMatchingHandler", handlerMethod);
+        request.setAttribute("logdispatch.exception", new IllegalArgumentException("Invalid user"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, chainWithStatus(400));
+
+        Map<String, Object> payload = dispatchedPayload();
+        assertThat(payload).containsEntry("statusCode", 400);
+        assertThat(payload).containsEntry("severity", "WARNING");
+    }
+
+    @Test
+    @DisplayName("Should dispatch controller 401 Unauthorized as SECURITY")
+    void shouldDispatchController401AsSecurity() throws Exception {
+        org.springframework.web.method.HandlerMethod handlerMethod = new org.springframework.web.method.HandlerMethod(
+                new SampleController(),
+                SampleController.class.getMethod("getUsers")
+        );
+
+        MockHttpServletRequest request = request("POST", "/api/auth/login");
+        request.setAttribute("org.springframework.web.servlet.HandlerMapping.bestMatchingHandler", handlerMethod);
+        request.setAttribute("logdispatch.exception", new RuntimeException("Bad credentials"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, chainWithStatus(401));
+
+        Map<String, Object> payload = dispatchedPayload();
+        assertThat(payload).containsEntry("statusCode", 401);
+        assertThat(payload).containsEntry("severity", "SECURITY");
+    }
+
+    @Test
+    @DisplayName("Should dispatch controller 500 exceptions as CRITICAL")
+    void shouldDispatchController500AsCritical() throws Exception {
+        org.springframework.web.method.HandlerMethod handlerMethod = new org.springframework.web.method.HandlerMethod(
+                new SampleController(),
+                SampleController.class.getMethod("getUsers")
+        );
+
+        MockHttpServletRequest request = request("GET", "/api/users");
+        request.setAttribute("org.springframework.web.servlet.HandlerMapping.bestMatchingHandler", handlerMethod);
+        request.setAttribute("logdispatch.exception", new RuntimeException("Database error"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, chainWithStatus(500));
+
+        Map<String, Object> payload = dispatchedPayload();
+        assertThat(payload).containsEntry("statusCode", 500);
+        assertThat(payload).containsEntry("severity", "CRITICAL");
     }
 
     @Test

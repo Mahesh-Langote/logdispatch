@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2026-10-04
+### Fixed
+- **Filter-Level Exception Severity Resolution**: Fixed an issue where exceptions thrown during servlet filter execution (e.g. `UserTypeHeaderFilter` invoking `HeaderService`) were misclassified as `WARNING` because the AOP aspect captured the exception before reaching a controller. Filter-level errors now correctly receive `HTTP_FILTER_ERROR`.
+- **Automatic `SECURITY` Severity for 401/403**: Requests resulting in HTTP 401 (Unauthorized / bad credentials) or HTTP 403 (Forbidden) are now automatically assigned `SECURITY` severity across both filter and controller executions.
+
 ## [1.3.2] - 2026-09-26
 ### Added
 - **`HTTP_FILTER_ERROR` Log Severity**: Introduced `HTTP_FILTER_ERROR` enum value in `LogSeverity` to categorize filter-level request rejections and pre-controller execution errors, preventing non-security filter errors (e.g. 404, 400, 500) from polluting `SECURITY` dashboards.
